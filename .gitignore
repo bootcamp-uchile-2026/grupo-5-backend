@@ -1,2 +1,5 @@
-# Agrega aquí los archivos y directorios que no deben incorporarse al repositorio.
-# Adapta este archivo a las tecnologías elegidas por el equipo.
+node_modules
+dist
+.env
+*.log
+coverage
