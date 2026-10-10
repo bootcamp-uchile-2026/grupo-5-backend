@@ -27,7 +27,8 @@ export class LibrerosService {
 
   findOne(id: string): PerfilLibrero {
     const perfil = this.perfiles.find((p) => p.id === id);
-    if (!perfil) throw new NotFoundException(`Perfil de librero ${id} no encontrado`);
+    if (!perfil)
+      throw new NotFoundException(`Perfil de librero ${id} no encontrado`);
     return perfil;
   }
 
@@ -45,7 +46,10 @@ export class LibrerosService {
     return perfil;
   }
 
-  agregarSeccionCurada(libreroId: string, dto: CreateSeccionCuradaDto): SeccionCurada {
+  agregarSeccionCurada(
+    libreroId: string,
+    dto: CreateSeccionCuradaDto,
+  ): SeccionCurada {
     this.findOne(libreroId); // valida existencia
     const seccion: SeccionCurada = { id: randomUUID(), libreroId, ...dto };
     this.secciones.push(seccion);

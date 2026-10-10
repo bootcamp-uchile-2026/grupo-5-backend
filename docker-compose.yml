@@ -1,0 +1,39 @@
+# API + PostgreSQL. Uso: cp .env.example .env && docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-leeconnos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-leeconnos}
+      POSTGRES_DB: ${POSTGRES_DB:-leeconnos}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Estructura y datos de prueba: se ejecutan solo la primera vez (volumen vacío).
+      - ./db:/docker-entrypoint-initdb.d:ro
+    # La base solo se publica en localhost del servidor, nunca hacia internet.
+    ports:
+      - '127.0.0.1:5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-leeconnos} -d ${POSTGRES_DB:-leeconnos}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    image: leeconnos-backend:hito-2
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Dentro de la red de compose la base se llama "db".
+      DATABASE_URL: postgresql://${POSTGRES_USER:-leeconnos}:${POSTGRES_PASSWORD:-leeconnos}@db:5432/${POSTGRES_DB:-leeconnos}
+      DB_SSL: 'false'
+    ports:
+      - '${PORT:-3000}:${PORT:-3000}'
+
+volumes:
+  pgdata:

@@ -1,50 +1,98 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsISBN,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+import { EstadoLibro, FormatoLibro } from '../entities/libro.entity';
+
+/** Deja el ISBN solo con dígitos (y X final), sin guiones ni espacios. */
+export const normalizarIsbn = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.replace(/[-\s]/g, '').toUpperCase() : value;
 
 export class CreateLibroDto {
-  @ApiProperty({ example: '9788433979107' })
-  @IsString()
+  @ApiProperty({
+    example: '9780553293357',
+    description: 'ISBN-10 o ISBN-13 válido; debe ser único',
+  })
+  @Transform(normalizarIsbn)
+  @IsISBN()
   isbn: string;
 
-  @ApiProperty({ example: 'Cien años de soledad' })
+  @ApiProperty({ example: 'Fundación' })
   @IsString()
+  @MinLength(1)
+  @MaxLength(200)
   titulo: string;
 
-  @ApiProperty({ example: 'Gabriel García Márquez' })
+  @ApiProperty({ example: 'Isaac Asimov' })
   @IsString()
+  @MinLength(1)
+  @MaxLength(120)
   autor: string;
 
-  @ApiProperty({ example: 'Realismo mágico' })
+  @ApiProperty({ example: 'Ciencia ficción' })
   @IsString()
+  @MinLength(1)
+  @MaxLength(60)
   genero: string;
 
-  @ApiPropertyOptional({ example: 'Editorial Sudamericana' })
+  @ApiPropertyOptional({
+    example: 'El primer libro de la saga de la Fundación.',
+  })
   @IsOptional()
   @IsString()
-  editorial?: string;
-
-  @ApiPropertyOptional({ example: 1967 })
-  @IsOptional()
-  @IsInt()
-  anioPublicacion?: number;
-
-  @ApiPropertyOptional({ example: 'La historia de la familia Buendía...' })
-  @IsOptional()
-  @IsString()
+  @MaxLength(2000)
   sinopsis?: string;
 
-  @ApiPropertyOptional({ example: 'https://covers.openlibrary.org/b/isbn/9788433979107-L.jpg' })
+  @ApiPropertyOptional({ example: 'Debolsillo' })
   @IsOptional()
   @IsString()
-  portadaUrl?: string;
+  @MaxLength(120)
+  editorial?: string;
 
-  @ApiProperty({ example: 10 })
+  @ApiPropertyOptional({ example: 1951 })
+  @IsOptional()
+  @IsInt()
+  @Min(1400)
+  @Max(2100)
+  anioPublicacion?: number;
+
+  @ApiPropertyOptional({ enum: FormatoLibro, default: FormatoLibro.FISICO })
+  @IsOptional()
+  @IsEnum(FormatoLibro)
+  formato?: FormatoLibro;
+
+  @ApiPropertyOptional({ enum: EstadoLibro, default: EstadoLibro.DISPONIBLE })
+  @IsOptional()
+  @IsEnum(EstadoLibro)
+  estado?: EstadoLibro;
+
+  @ApiProperty({
+    example: 12990,
+    description: 'Precio en CLP, entero mayor que 0',
+  })
+  @IsInt()
+  @Min(1)
+  precio: number;
+
+  @ApiProperty({ example: 5, minimum: 0 })
   @IsInt()
   @Min(0)
   stock: number;
 
-  @ApiProperty({ example: 15990 })
-  @IsNumber()
-  @Min(0)
-  precio: number;
+  @ApiPropertyOptional({
+    example: 'https://covers.openlibrary.org/b/isbn/9780553293357-L.jpg',
+  })
+  @IsOptional()
+  @IsUrl()
+  portadaUrl?: string;
 }

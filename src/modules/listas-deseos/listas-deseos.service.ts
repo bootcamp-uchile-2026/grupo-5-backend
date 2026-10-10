@@ -27,7 +27,8 @@ export class ListasDeseosService {
 
   findOne(id: string): ListaDeseos {
     const lista = this.listas.find((l) => l.id === id);
-    if (!lista) throw new NotFoundException(`Lista de deseos ${id} no encontrada`);
+    if (!lista)
+      throw new NotFoundException(`Lista de deseos ${id} no encontrada`);
     return lista;
   }
 
@@ -53,7 +54,8 @@ export class ListasDeseosService {
 
   remove(id: string): void {
     const index = this.listas.findIndex((l) => l.id === id);
-    if (index === -1) throw new NotFoundException(`Lista de deseos ${id} no encontrada`);
+    if (index === -1)
+      throw new NotFoundException(`Lista de deseos ${id} no encontrada`);
     this.listas.splice(index, 1);
   }
 }

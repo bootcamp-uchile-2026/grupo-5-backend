@@ -10,7 +10,10 @@ export class CreateHiloDiscusionDto {
   @IsString()
   titulo: string;
 
-  @ApiProperty({ example: 'Me llamó la atención cómo Márquez mezcla lo cotidiano con lo fantástico...' })
+  @ApiProperty({
+    example:
+      'Me llamó la atención cómo Márquez mezcla lo cotidiano con lo fantástico...',
+  })
   @IsString()
   contenido: string;
 }

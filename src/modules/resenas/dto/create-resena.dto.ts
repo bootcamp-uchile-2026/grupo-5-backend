@@ -16,7 +16,9 @@ export class CreateResenaDto {
   @Max(5)
   calificacion: number;
 
-  @ApiProperty({ example: 'Una recomendación perfecta, tal como me la describió el librero.' })
+  @ApiProperty({
+    example: 'Una recomendación perfecta, tal como me la describió el librero.',
+  })
   @IsString()
   comentario: string;
 }

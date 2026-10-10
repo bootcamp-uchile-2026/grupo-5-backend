@@ -6,7 +6,9 @@ export class CreateSeccionCuradaDto {
   @IsString()
   libroId: string;
 
-  @ApiProperty({ example: 'Este libro me acompañó en un viaje que cambió mi forma de leer.' })
+  @ApiProperty({
+    example: 'Este libro me acompañó en un viaje que cambió mi forma de leer.',
+  })
   @IsString()
   notaPersonal: string;
 

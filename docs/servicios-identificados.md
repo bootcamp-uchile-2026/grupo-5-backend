@@ -1,5 +1,8 @@
 # Servicios identificados — Backend LeeConNos (Hito 1)
 
+> **Documento histórico del Hito 1.** El estado vigente de los servicios, con los cambios del Hito 2,
+> está en [servicios.md](servicios.md).
+
 Este documento resume los servicios de la API identificados a partir de la
 Especificación del Producto, el Backlog, la Arquitectura Funcional y los flujos
 definidos por UX/UI. La documentación interactiva y siempre actualizada está

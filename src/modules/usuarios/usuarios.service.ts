@@ -1,69 +1,72 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcryptjs';
+import { Repository } from 'typeorm';
+import {
+  EmailYaRegistradoException,
+  PermisoDenegadoException,
+  UsuarioNoEncontradoException,
+} from '../../common/exceptions/app.exceptions';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
-import { LoginUsuarioDto } from './dto/login-usuario.dto';
-import { Usuario } from './entities/usuario.entity';
-import { randomUUID } from 'crypto';
+import { Rol, Usuario } from './entities/usuario.entity';
 
-/**
- * Servicio de Usuarios.
- * Hito 1: persistencia en memoria como base. Se reemplazará por
- * un repositorio real (TypeORM/Prisma + BD) en los siguientes hitos.
- */
+const RONDAS_BCRYPT = 10;
+
 @Injectable()
 export class UsuariosService {
-  private readonly usuarios: Usuario[] = [];
+  constructor(
+    @InjectRepository(Usuario) private readonly repo: Repository<Usuario>,
+  ) {}
 
-  create(dto: CreateUsuarioDto): Usuario {
-    const existe = this.usuarios.find((u) => u.email === dto.email);
-    if (existe) {
-      throw new ConflictException('Ya existe un usuario con ese email');
+  async crear(dto: CreateUsuarioDto): Promise<Usuario> {
+    // El registro es público: no se puede auto-asignar un rol con privilegios.
+    if (dto.rol && dto.rol !== Rol.CLIENTE) {
+      throw new PermisoDenegadoException(
+        'El registro público solo permite crear cuentas con rol CLIENTE',
+      );
     }
-    const nuevoUsuario: Usuario = {
-      id: randomUUID(),
+    if (await this.repo.existsBy({ email: dto.email })) {
+      throw new EmailYaRegistradoException(dto.email);
+    }
+    const usuario = this.repo.create({
       nombre: dto.nombre,
       email: dto.email,
-      passwordHash: dto.password, // TODO: hashear con bcrypt en próximos hitos
-      rol: dto.rol,
+      passwordHash: await bcrypt.hash(dto.password, RONDAS_BCRYPT),
+      rol: Rol.CLIENTE,
       generosFavoritos: dto.generosFavoritos ?? [],
-      fechaRegistro: new Date(),
-    };
-    this.usuarios.push(nuevoUsuario);
-    return nuevoUsuario;
+      avatarUrl: dto.avatarUrl ?? null,
+    });
+    return this.repo.save(usuario);
   }
 
-  findAll(): Usuario[] {
-    return this.usuarios;
+  listar(): Promise<Usuario[]> {
+    return this.repo.find({ order: { creadoEn: 'ASC' } });
   }
 
-  findOne(id: string): Usuario {
-    const usuario = this.usuarios.find((u) => u.id === id);
-    if (!usuario) {
-      throw new NotFoundException(`Usuario ${id} no encontrado`);
-    }
+  async obtener(id: string): Promise<Usuario> {
+    const usuario = await this.repo.findOneBy({ id });
+    if (!usuario) throw new UsuarioNoEncontradoException(id);
     return usuario;
   }
 
-  update(id: string, dto: UpdateUsuarioDto): Usuario {
-    const usuario = this.findOne(id);
-    Object.assign(usuario, dto);
-    return usuario;
+  buscarPorEmail(email: string): Promise<Usuario | null> {
+    return this.repo.findOneBy({ email: email.trim().toLowerCase() });
   }
 
-  remove(id: string): void {
-    const index = this.usuarios.findIndex((u) => u.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`Usuario ${id} no encontrado`);
-    }
-    this.usuarios.splice(index, 1);
+  async actualizar(id: string, dto: UpdateUsuarioDto): Promise<Usuario> {
+    const usuario = await this.obtener(id);
+    if (dto.nombre !== undefined) usuario.nombre = dto.nombre;
+    if (dto.generosFavoritos !== undefined)
+      usuario.generosFavoritos = dto.generosFavoritos;
+    if (dto.avatarUrl !== undefined) usuario.avatarUrl = dto.avatarUrl;
+    if (dto.password !== undefined)
+      usuario.passwordHash = await bcrypt.hash(dto.password, RONDAS_BCRYPT);
+    return this.repo.save(usuario);
   }
 
-  login(dto: LoginUsuarioDto): { accessToken: string; usuario: Usuario } {
-    const usuario = this.usuarios.find((u) => u.email === dto.email);
-    if (!usuario || usuario.passwordHash !== dto.password) {
-      throw new NotFoundException('Credenciales inválidas');
-    }
-    // TODO: emitir JWT real en el hito de autenticación
-    return { accessToken: `fake-jwt-for-${usuario.id}`, usuario };
+  async eliminar(id: string): Promise<void> {
+    const usuario = await this.obtener(id);
+    await this.repo.remove(usuario);
   }
 }

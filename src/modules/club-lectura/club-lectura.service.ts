@@ -43,7 +43,8 @@ export class ClubLecturaService {
 
   obtenerClub(id: string): ClubLectura {
     const club = this.clubes.find((c) => c.id === id);
-    if (!club) throw new NotFoundException(`Club de lectura ${id} no encontrado`);
+    if (!club)
+      throw new NotFoundException(`Club de lectura ${id} no encontrado`);
     return club;
   }
 
@@ -73,7 +74,8 @@ export class ClubLecturaService {
 
   comentarHilo(hiloId: string, dto: CreateComentarioDto): ComentarioHilo {
     const hiloExiste = this.hilos.some((h) => h.id === hiloId);
-    if (!hiloExiste) throw new NotFoundException(`Hilo ${hiloId} no encontrado`);
+    if (!hiloExiste)
+      throw new NotFoundException(`Hilo ${hiloId} no encontrado`);
     const comentario: ComentarioHilo = {
       id: randomUUID(),
       hiloId,
