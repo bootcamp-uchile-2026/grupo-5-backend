@@ -1,20 +1,43 @@
-export enum RolUsuario {
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+
+export enum Rol {
   CLIENTE = 'CLIENTE',
   LIBRERO = 'LIBRERO',
   ADMIN = 'ADMIN',
 }
 
-/**
- * Entidad Usuario.
- * Representa tanto a clientes como a libreros de LeeConNos.
- * En hitos siguientes se migrará a una entidad de persistencia real (TypeORM/Prisma).
- */
+@Entity('usuarios')
 export class Usuario {
+  @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column()
   nombre: string;
+
+  @Column({ unique: true })
   email: string;
+
+  @Column({ name: 'password_hash' })
   passwordHash: string;
-  rol: RolUsuario;
-  generosFavoritos?: string[]; // usado por el motor de recomendaciones (solo CLIENTE)
-  fechaRegistro: Date;
+
+  @Column({ type: 'varchar', length: 20 })
+  rol: Rol;
+
+  @Column('text', { name: 'generos_favoritos', array: true })
+  generosFavoritos: string[];
+
+  @Column({ name: 'avatar_url', type: 'text', nullable: true })
+  avatarUrl: string | null;
+
+  @CreateDateColumn({ name: 'creado_en', type: 'timestamptz' })
+  creadoEn: Date;
+
+  @UpdateDateColumn({ name: 'actualizado_en', type: 'timestamptz' })
+  actualizadoEn: Date;
 }

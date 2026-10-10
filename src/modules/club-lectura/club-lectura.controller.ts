@@ -1,3 +1,4 @@
+import { Public } from '../auth/decorators/public.decorator';
 import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ClubLecturaService } from './club-lectura.service';
@@ -6,6 +7,7 @@ import { CreateHiloDiscusionDto } from './dto/create-hilo-discusion.dto';
 import { CreateComentarioDto } from './dto/create-comentario.dto';
 import { ActualizarProgresoDto } from './dto/actualizar-progreso.dto';
 
+@Public()
 @ApiTags('Club de Lectura')
 @Controller('club-lectura')
 export class ClubLecturaController {
@@ -49,7 +51,10 @@ export class ClubLecturaController {
 
   @Post('hilos/:hiloId/comentarios')
   @ApiOperation({ summary: 'Comentar en un hilo de discusión' })
-  comentarHilo(@Param('hiloId') hiloId: string, @Body() dto: CreateComentarioDto) {
+  comentarHilo(
+    @Param('hiloId') hiloId: string,
+    @Body() dto: CreateComentarioDto,
+  ) {
     return this.clubLecturaService.comentarHilo(hiloId, dto);
   }
 
@@ -60,7 +65,9 @@ export class ClubLecturaController {
   }
 
   @Put(':id/progreso/:usuarioId')
-  @ApiOperation({ summary: 'Actualizar el progreso de lectura de un usuario en el club' })
+  @ApiOperation({
+    summary: 'Actualizar el progreso de lectura de un usuario en el club',
+  })
   actualizarProgreso(
     @Param('id') id: string,
     @Param('usuarioId') usuarioId: string,
@@ -70,7 +77,9 @@ export class ClubLecturaController {
   }
 
   @Get(':id/progreso')
-  @ApiOperation({ summary: 'Ver el progreso de lectura compartido de todos los participantes' })
+  @ApiOperation({
+    summary: 'Ver el progreso de lectura compartido de todos los participantes',
+  })
   obtenerProgresoCompartido(@Param('id') id: string) {
     return this.clubLecturaService.obtenerProgresoCompartido(id);
   }

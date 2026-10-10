@@ -1,3 +1,4 @@
+import { Public } from '../auth/decorators/public.decorator';
 import {
   Body,
   Controller,
@@ -13,6 +14,7 @@ import { CreateListaDeseosDto } from './dto/create-lista-deseos.dto';
 import { UpdateListaDeseosDto } from './dto/update-lista-deseos.dto';
 import { AgregarLibroListaDto } from './dto/agregar-libro-lista.dto';
 
+@Public()
 @ApiTags('Listas de deseos')
 @Controller('listas-deseos')
 export class ListasDeseosController {

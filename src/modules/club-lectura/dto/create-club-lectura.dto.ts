@@ -10,7 +10,9 @@ export class CreateClubLecturaDto {
   @IsString()
   titulo: string;
 
-  @ApiPropertyOptional({ example: 'Leeremos y discutiremos un capítulo por semana.' })
+  @ApiPropertyOptional({
+    example: 'Leeremos y discutiremos un capítulo por semana.',
+  })
   @IsOptional()
   @IsString()
   descripcion?: string;

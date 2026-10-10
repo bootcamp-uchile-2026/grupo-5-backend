@@ -3,3 +3,8 @@ dist
 .env
 *.log
 coverage
+scripts/local-db/data
+scripts/local-db/node_modules
+scripts/local-db/package-lock.json
+*.pem
+*.tsbuildinfo

@@ -1,3 +1,4 @@
+import { Public } from '../auth/decorators/public.decorator';
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { LibrerosService } from './libreros.service';
@@ -5,6 +6,7 @@ import { CreatePerfilLibreroDto } from './dto/create-perfil-librero.dto';
 import { UpdatePerfilLibreroDto } from './dto/update-perfil-librero.dto';
 import { CreateSeccionCuradaDto } from './dto/create-seccion-curada.dto';
 
+@Public()
 @ApiTags('Libreros')
 @Controller('libreros')
 export class LibrerosController {
@@ -41,8 +43,14 @@ export class LibrerosController {
   }
 
   @Post(':id/seccion-curada')
-  @ApiOperation({ summary: 'Agregar un libro a la sección curada del librero, con nota personal' })
-  agregarSeccionCurada(@Param('id') id: string, @Body() dto: CreateSeccionCuradaDto) {
+  @ApiOperation({
+    summary:
+      'Agregar un libro a la sección curada del librero, con nota personal',
+  })
+  agregarSeccionCurada(
+    @Param('id') id: string,
+    @Body() dto: CreateSeccionCuradaDto,
+  ) {
     return this.librerosService.agregarSeccionCurada(id, dto);
   }
 

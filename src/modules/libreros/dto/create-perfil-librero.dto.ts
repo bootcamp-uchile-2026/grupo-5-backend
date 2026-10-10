@@ -2,7 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString } from 'class-validator';
 
 export class CreatePerfilLibreroDto {
-  @ApiProperty({ example: 'usr-123', description: 'id del Usuario con rol LIBRERO' })
+  @ApiProperty({
+    example: 'usr-123',
+    description: 'id del Usuario con rol LIBRERO',
+  })
   @IsString()
   usuarioId: string;
 
@@ -10,7 +13,9 @@ export class CreatePerfilLibreroDto {
   @IsString()
   alias: string;
 
-  @ApiProperty({ example: 'Amante de la ciencia ficción y la poesía latinoamericana.' })
+  @ApiProperty({
+    example: 'Amante de la ciencia ficción y la poesía latinoamericana.',
+  })
   @IsString()
   bio: string;
 

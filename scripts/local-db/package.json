@@ -1,0 +1,8 @@
+{
+  "name": "leeconnos-local-db",
+  "private": true,
+  "description": "PostgreSQL embebido para desarrollar sin Docker. No forma parte de la imagen de la API.",
+  "dependencies": {
+    "embedded-postgres": "18.4.0-beta.17"
+  }
+}
