@@ -8,6 +8,7 @@ import {
   ServicioExternoException,
 } from '../../common/exceptions/app.exceptions';
 import { UsuarioAutenticado } from '../auth/decorators/current-user.decorator';
+import { Libro } from '../libros/entities/libro.entity';
 import { EstadoPedido, Pedido } from '../pedidos/entities/pedido.entity';
 import { PedidosService } from '../pedidos/pedidos.service';
 import { CrearPagoDto, PagoAprobadoDto, PagoResponseDto } from './dto/pago.dto';
@@ -50,7 +51,27 @@ export class PagosService {
     dto: CrearPagoDto,
     usuario: UsuarioAutenticado,
   ): Promise<PagoAprobadoDto> {
-    const pedido = await this.pedidos.obtener(dto.pedidoId, usuario);
+    return this.pagarPedido(
+      await this.pedidos.obtener(dto.pedidoId, usuario),
+      dto,
+    );
+  }
+
+  /** Compra como invitado: el token del pedido reemplaza a la sesión. */
+  async pagarInvitado(
+    dto: CrearPagoDto,
+    token?: string,
+  ): Promise<PagoAprobadoDto> {
+    return this.pagarPedido(
+      await this.pedidos.obtenerInvitado(dto.pedidoId, token),
+      dto,
+    );
+  }
+
+  private async pagarPedido(
+    pedido: Pedido,
+    dto: CrearPagoDto,
+  ): Promise<PagoAprobadoDto> {
     if (pedido.estado !== EstadoPedido.PENDIENTE_PAGO) {
       throw new EstadoPedidoInvalidoException('pagar', pedido.estado);
     }
@@ -97,6 +118,15 @@ export class PagosService {
       );
       if (!affected)
         throw new EstadoPedidoInvalidoException('pagar', 'PAGADO o CANCELADO');
+      // Ventas reales: alimentan el orden "más vendidos" del catálogo.
+      for (const item of pedido.items) {
+        await tx.increment(
+          Libro,
+          { id: item.libroId },
+          'ventas',
+          item.cantidad,
+        );
+      }
       return tx.save(
         tx.create(Pago, {
           ...intento,

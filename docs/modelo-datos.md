@@ -109,3 +109,30 @@ erDiagram
 
 Reseñas, listas de deseos, perfiles de librero y club de lectura siguen en memoria en este hito.
 Su modelado en PostgreSQL (con llaves foráneas a `usuarios` y `libros`) queda para el Hito 3.
+
+## Tablas agregadas en el Hito 3
+
+Definidas en `db/03-hito3-schema.sql` (idempotente; también migra una base del Hito 2 con datos).
+
+| Tabla | Para qué |
+|---|---|
+| `categorias` | Menú de UX: géneros (agrupados en Ficción, No ficción, ...) y temáticas |
+| `resenas` | Reseñas de lectores y libreros (una por usuario y libro; `verificada` si lo compró) |
+| `libreros`, `librero_seguidores` | Perfiles editoriales (slug, biografía, top 5 en JSONB) y sus seguidores |
+| `recomendaciones_librero`, `colecciones` | Libros recomendados con nota (los `destacada` van al Home) y colecciones |
+| `listas_deseos`, `lista_deseos_libros` | Listas de deseos; una por usuario es la de "Favoritos" |
+| `clubes_lectura`, `club_participantes`, `club_hilos`, `club_comentarios` | Club de lectura y progreso de cada participante |
+| `cupones` | Códigos de descuento (porcentaje o monto fijo, vigencia, mínimo y usos) |
+| `suscripciones_newsletter` | Emails suscritos y token de baja |
+| `tokens_usuario` | SHA-256 de los tokens de verificación de correo y recuperación de contraseña |
+| `migraciones_aplicadas` | Migraciones de datos que deben correr una sola vez |
+
+Columnas nuevas:
+
+- `usuarios`: `apellido`, `recibir_novedades`, `email_verificado`, `proveedor_auth`, `proveedor_id`;
+  `password_hash` pasa a ser opcional (cuentas de Google/Facebook).
+- `libros`: `precio_anterior` (mayor que `precio`), `subgenero`, `encuadernacion`, `paginas`, `dimensiones`,
+  `etiquetas`, `categorias`, `video_url`, `galeria` y las estadísticas desnormalizadas `calificacion`,
+  `opiniones` y `ventas`.
+- `pedidos`: `descuento`, `codigo_descuento`, `invitado_email`, `invitado_nombre`; `usuario_id` pasa a ser
+  opcional y la regla del total queda `total = subtotal - descuento + costo_envio`.

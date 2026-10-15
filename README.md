@@ -9,13 +9,13 @@ comprar, pagar y seguir un pedido. Suma perfiles de libreros con secciones curad
 recomendaciones según géneros e historial de compras, club de lectura, reseñas y listas de
 deseos. El catálogo se enriquece con metadatos de la API gratuita de **Open Library**.
 
-> Entrega correspondiente al **Hito 2** del Bootcamp DCC — Universidad de Chile.
+> Entrega correspondiente al **Hito 3** del Bootcamp DCC — Universidad de Chile. Lo nuevo respecto del
+> Hito 2 está en [`docs/hito3-backend.md`](./docs/hito3-backend.md).
 
-| Estado en el Hito 2 | Módulos | Persistencia |
+| Estado en el Hito 3 | Módulos | Persistencia |
 |---|---|---|
-| **Funcional** | auth (JWT), usuarios, catálogo con búsqueda y filtros, carrito, pedidos, recomendaciones | PostgreSQL |
-| **Dummy con reglas predecibles** | costo de envío, pago, seguimiento | Reglas fijas |
-| **Sin cambios desde el Hito 1** | reseñas, listas de deseos, libreros, club de lectura | En memoria |
+| **Funcional** | auth (JWT con refresh, verificación de correo, recuperación de contraseña, Google y Facebook), usuarios, catálogo con filtros y categorías del menú, carrito, cupones, pedidos (también como invitado), reseñas, libreros, recomendaciones, listas de deseos, club de lectura, newsletter | PostgreSQL |
+| **Dummy con reglas predecibles** | costo de envío, pago, seguimiento, envío de correos | Reglas fijas |
 
 ## Contenidos
 
@@ -89,6 +89,12 @@ Antes de ejecutar el proyecto, asegúrate de tener instalados los siguientes com
    | `PORT` | No | `3000` | Puerto HTTP de la API |
    | `DB_SSL` | No | `false` | `true` si el proveedor de la base exige SSL |
    | `JWT_EXPIRES_IN` | No | `2h` | Vigencia del token (`30m`, `2h`, `7d`) |
+   | `JWT_REFRESH_EXPIRES_IN` | No | `7d` | Vigencia del `refreshToken` para renovar la sesión con `POST /auth/refresh` |
+   | `FRONTEND_URL` | No | `http://localhost:5173` | URL de la Web a la que apuntan los enlaces de los correos |
+   | `EXPONER_TOKENS_DEV` | No | `false` | `true` (fuera de producción) incluye el token de los correos dummy en la respuesta |
+   | `GOOGLE_CLIENT_ID` | No | — | Habilita `POST /auth/google`. Sin ella responde `503` |
+   | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | No | — | Habilitan `POST /auth/facebook`. Sin ellas responde `503` |
+   | `DOMINIO` | Solo HTTPS | `localhost` | Dominio del certificado del perfil `https` (ver [despliegue](./docs/despliegue.md)) |
    | `CORS_ORIGIN` | No | `*` | Orígenes permitidos, separados por coma. `*` permite cualquiera |
    | `ENVIO_GRATIS_DESDE` | No | `40000` | Subtotal (CLP) desde el que el despacho es gratis |
    | `SEGUIMIENTO_PASO_SEGUNDOS` | No | `60` | Segundos entre cada hito del seguimiento simulado |
@@ -140,7 +146,8 @@ Otros scripts útiles:
 | Script | Qué hace |
 |---|---|
 | `npm run db:reset` | Borra las tablas y las vuelve a crear con los datos de prueba |
-| `npm run test:e2e` | 23 pruebas de punta a punta contra la base configurada en `.env` |
+| `npm run db:reset-stock` | Repone el stock de los libros de prueba y cancela los pedidos pendientes de pago |
+| `npm run test:e2e` | 44 pruebas de punta a punta contra la base configurada en `.env` |
 | `npm run lint` / `npm run format` | ESLint y Prettier |
 
 ## 5. Ejecución - Producción
@@ -187,25 +194,30 @@ src/
 │   ├── pipes/              # Validación de parámetros (UuidPipe)
 │   └── dto/                # Estructura de error para Swagger
 └── modules/                # Un módulo por funcionalidad del negocio
-    ├── auth/               # JWT, guards global y por rol
+    ├── auth/               # JWT y refresh, verificación, recuperación, Google/Facebook
     ├── usuarios/           # Cuentas de clientes y libreros            → PostgreSQL
-    ├── libros/             # Catálogo, búsqueda, filtros, Open Library → PostgreSQL
+    ├── libros/             # Catálogo, filtros, categorías del menú    → PostgreSQL
     ├── carrito/            # Carrito del usuario autenticado           → PostgreSQL
-    ├── pedidos/            # Checkout, historial y cancelación         → PostgreSQL
+    ├── cupones/            # Códigos de descuento                      → PostgreSQL
+    ├── pedidos/            # Checkout (con cuenta o invitado)          → PostgreSQL
+    ├── resenas/            # Reseñas de lectores y libreros            → PostgreSQL
+    ├── libreros/           # Perfiles, recomendaciones y colecciones   → PostgreSQL
+    ├── recomendaciones/    # Destacadas del Home y personalizadas      → PostgreSQL
+    ├── listas-deseos/      # Listas de deseos y "Favoritos"            → PostgreSQL
+    ├── club-lectura/       # Clubes, hilos y progreso compartido       → PostgreSQL
+    ├── newsletter/         # Suscripciones                             → PostgreSQL
+    ├── admin/              # Reposición del stock de prueba
+    ├── mail/               # Envío de correos                          → dummy (log)
     ├── envios/             # Cotización de envío                       → dummy
     ├── pagos/              # Pasarela de pago                          → dummy
-    ├── seguimiento/        # Seguimiento del pedido                    → dummy
-    ├── recomendaciones/    # Motor de recomendaciones
-    ├── libreros/           # Perfiles editoriales y secciones curadas  → en memoria
-    ├── club-lectura/       # Clubes, hilos y progreso compartido       → en memoria
-    ├── resenas/            # Reseñas de clientes                       → en memoria
-    └── listas-deseos/      # Listas de deseos, modo "para regalo"      → en memoria
-db/                         # 01-schema.sql (estructura) y 02-seed.sql (datos de prueba)
-scripts/                    # db-setup.js y PostgreSQL local sin Docker
+    └── seguimiento/        # Seguimiento del pedido                    → dummy
+db/                         # 01/03 estructura (Hito 2/3) y 02/04 datos de prueba
+scripts/                    # db-setup.js, reset-stock.sql y PostgreSQL local sin Docker
 test/                       # Pruebas e2e del flujo de compra
 docs/                       # Documentación técnica y backlog
 Dockerfile                  # Imagen de la API
-docker-compose.yml          # API + PostgreSQL
+docker-compose.yml          # API + PostgreSQL (+ Caddy para HTTPS con el perfil https)
+Caddyfile                   # Proxy HTTPS con certificado automático
 ```
 
 Cada módulo contiene su `*.module.ts`, `*.controller.ts` (rutas), `*.service.ts` (lógica),
@@ -297,8 +309,11 @@ Para dudas o problemas con la API, abre un *issue* en
 
 ### Datos de prueba
 
-`npm run db:setup` (o el primer `docker compose up`) carga 24 libros y tres cuentas de
-ejemplo, una por rol: `cliente@leeconnos.cl`, `librero@leeconnos.cl` y `admin@leeconnos.cl`.
+`npm run db:setup` (o el primer `docker compose up`) carga 75 libros (con reseñas, cubriendo
+todas las categorías del menú de UX), 5 perfiles de libreros, cupones, un club de lectura y
+cuentas de ejemplo: `cliente@leeconnos.cl`, `librero@leeconnos.cl` y `admin@leeconnos.cl`, los
+libreros de los wireframes (`gregorio@`, `ana@`, `tyler@`, `clara@`) y los lectores que firman
+las reseñas (`lector1@` a `lector6@`).
 Su contraseña de desarrollo está indicada en [`db/02-seed.sql`](./db/02-seed.sql) y es
 válida solo para ambientes locales; en un ambiente público debe cambiarse.
 
@@ -334,8 +349,11 @@ Para probar sin esas cuentas basta con registrarse en `POST /auth/registro`.
 
 ### Modelo de datos
 
-Seis tablas: `usuarios`, `libros`, `carrito_items`, `pedidos`, `pedido_items` y `pagos`.
-El diagrama entidad-relación y las decisiones de modelado están en
+Las seis tablas del Hito 2 (`usuarios`, `libros`, `carrito_items`, `pedidos`, `pedido_items` y
+`pagos`) más las del Hito 3: `categorias`, `resenas`, `libreros`, `recomendaciones_librero`,
+`colecciones`, `librero_seguidores`, `listas_deseos`, `lista_deseos_libros`, `clubes_lectura`,
+`club_participantes`, `club_hilos`, `club_comentarios`, `cupones`, `suscripciones_newsletter` y
+`tokens_usuario`. El diagrama entidad-relación y las decisiones de modelado están en
 [`docs/modelo-datos.md`](./docs/modelo-datos.md).
 
 ### Imagen Docker
@@ -344,7 +362,7 @@ El `Dockerfile` construye la imagen en dos etapas (compilar y ejecutar), deja so
 dependencias de producción y corre con un usuario sin privilegios. Para construirla sola:
 
 ```bash
-docker build -t leeconnos-backend:hito-2 .
+docker build -t leeconnos-backend:hito-3 .
 ```
 
 ### Decisiones técnicas del Hito 2
@@ -368,5 +386,6 @@ docker build -t leeconnos-backend:hito-2 .
 | [`docs/servicios.md`](./docs/servicios.md) | Endpoints, reglas dummy, códigos de error, cambios de contrato |
 | [`docs/modelo-datos.md`](./docs/modelo-datos.md) | Modelo de datos y diagrama entidad-relación |
 | [`docs/despliegue.md`](./docs/despliegue.md) | Docker y despliegue en la nube |
+| [`docs/hito3-backend.md`](./docs/hito3-backend.md) | Lo agregado en el Hito 3 y guía para reemplazar los datos dummy del Front |
 | [`docs/hito2-backend.md`](./docs/hito2-backend.md) | Estado frente a las bases del Hito 2 y trabajo para el Hito 3 |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Flujo de ramas, commits y Pull Requests |

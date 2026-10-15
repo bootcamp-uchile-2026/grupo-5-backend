@@ -1,12 +1,18 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateComentarioDto {
-  @ApiProperty({ example: 'usr-789' })
+  @ApiPropertyOptional({
+    deprecated: true,
+    description: 'Ignorado: el autor es el usuario del token',
+  })
+  @IsOptional()
   @IsString()
-  usuarioId: string;
+  usuarioId?: string;
 
   @ApiProperty({ example: 'Totalmente de acuerdo, además creo que...' })
   @IsString()
+  @MinLength(1)
+  @MaxLength(3000)
   contenido: string;
 }

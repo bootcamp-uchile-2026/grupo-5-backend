@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Headers, Param } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -11,6 +11,8 @@ import {
   CurrentUser,
   UsuarioAutenticado,
 } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
+import { HEADER_TOKEN_PEDIDO } from '../pedidos/pedidos.controller';
 import { SeguimientoResponseDto } from './dto/seguimiento.dto';
 import { SeguimientoService } from './seguimiento.service';
 
@@ -19,6 +21,22 @@ import { SeguimientoService } from './seguimiento.service';
 @Controller('pedidos')
 export class SeguimientoController {
   constructor(private readonly seguimiento: SeguimientoService) {}
+
+  @Public()
+  @Get('invitado/:id/seguimiento')
+  @HEADER_TOKEN_PEDIDO
+  @ApiOperation({ summary: 'Seguimiento de un pedido de invitado (DUMMY)' })
+  @ApiOkResponse({ type: SeguimientoResponseDto })
+  @ApiErrores(400, [401, 'TOKEN_PEDIDO_INVALIDO'], 404, [
+    409,
+    'SEGUIMIENTO_NO_DISPONIBLE',
+  ])
+  consultarInvitado(
+    @Param('id', UuidPipe) id: string,
+    @Headers('x-pedido-token') token?: string,
+  ): Promise<SeguimientoResponseDto> {
+    return this.seguimiento.consultarInvitado(id, token);
+  }
 
   @Get(':id/seguimiento')
   @ApiOperation({

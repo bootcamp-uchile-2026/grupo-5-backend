@@ -1,7 +1,11 @@
-# Servicios de la API · Hito 2
+# Servicios de la API · Hito 3
 
 La fuente oficial y siempre actualizada es Swagger (`/docs`). Este documento resume qué hay, en qué estado
-está cada servicio y qué cambió respecto del Hito 1, para coordinar con Web y Mobile.
+está cada servicio y qué cambió respecto de los hitos anteriores, para coordinar con Web y Mobile.
+
+> **Novedades del Hito 3:** ver la [sección 6](#6-novedades-del-hito-3) y la guía para el Front en
+> [`hito3-backend.md`](./hito3-backend.md). Reseñas, listas de deseos, libreros y club de lectura ya no
+> están en memoria (la sección 3 queda como referencia histórica).
 
 **Autenticación.** Toda ruta exige `Authorization: Bearer <token>` salvo las marcadas como *Pública*.
 El token se obtiene en `POST /auth/login` o `POST /auth/registro` y dura `JWT_EXPIRES_IN` (2 h por defecto).
@@ -188,3 +192,119 @@ Web y Mobile deben revisar estos puntos:
 | `POST /recomendaciones/usuario/:id/compras` (compra simulada) | **Eliminado**: el historial sale de los pedidos pagados |
 | Errores con el formato por defecto de NestJS | Formato único `ErrorResponseDto` con código estable |
 | — | Nuevos: `/auth/*`, `/libros/generos`, `/carrito/*`, `/pedidos/*`, `/envios/cotizar`, `/pagos/*`, `/health` |
+
+## 6. Novedades del Hito 3
+
+### Auth y cuenta
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `POST /auth/registro` | Pública | Ahora acepta `apellido` y `recibirNovedades`, y envía el correo de verificación |
+| `POST /auth/refresh` | Pública | `{ refreshToken }` → sesión nueva sin pedir la contraseña |
+| `POST /auth/verificar-email` | Pública | `{ token }` del enlace del correo. Vincula los pedidos de invitado con ese email |
+| `POST /auth/reenviar-verificacion` | Token | Reenvía el correo (`409 EMAIL_YA_VERIFICADO`) |
+| `POST /auth/olvide-password` | Pública | Siempre `202`, exista o no la cuenta |
+| `POST /auth/restablecer-password` | Pública | `{ token, password }` |
+| `POST /auth/google` | Pública | `{ idToken }` de Google Identity Services. `503` sin `GOOGLE_CLIENT_ID` |
+| `POST /auth/facebook` | Pública | `{ accessToken }` de Facebook Login. `503` sin `FACEBOOK_APP_ID`/`SECRET` |
+
+Login y registro devuelven además `refreshToken` y `refreshExpiresIn`. El usuario trae `apellido`,
+`nombreCompleto`, `recibirNovedades`, `emailVerificado`, `proveedorAuth` y `creadoEn`.
+
+### Catálogo
+
+Campos nuevos del libro: `calificacion`, `opiniones`, `ventas`, `precioAnterior`, `descuentoPorcentaje`,
+`enOferta`, `subgenero`, `categorias`, `encuadernacion`, `paginas`, `dimensiones`, `etiquetas`, `videoUrl`,
+`galeria` y `descripcion` (igual a `sinopsis`). Los LIBRERO/ADMIN los editan con `POST`/`PATCH /libros`
+(`422 PRECIO_ANTERIOR_INVALIDO` si el precio anterior no es mayor que el actual).
+
+| Parámetro nuevo de `GET /libros` | Ejemplo | Regla |
+|---|---|---|
+| `genero` | `Romance` | Ahora también acepta las categorías del menú de UX |
+| `categoria` | `Clásicos` | Solo categorías del menú |
+| `editorial` | `anagrama` | Coincidencia parcial |
+| `subgenero` | `Novela negra` | Exacto |
+| `autores` | `Allende,Cortázar` | Varios a la vez (o repitiendo el parámetro) |
+| `etiquetas` | `Clásico,Chile` | Debe tener todas |
+| `enOferta` | `true` | Solo con precio anterior |
+| `calificacionMin` | `4` | 0 a 5 |
+| `orden` | `mas_vendidos` | Además: `mejor_calificados`, `mas_comentados`, `mayor_descuento` |
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `GET /libros/categorias` | Pública | Menú de géneros y temáticas con la cantidad de libros |
+| `GET /libros/filtros` | Pública | Editoriales, subgéneros, autores, etiquetas y rango de precios existentes |
+| `GET /libros/:id/relacionados` | Pública | "Lo que la comunidad también leyó" |
+| `GET /libros/:id/resenas` | Pública | Reseñas paginadas con resumen por estrella (`?tipo=LECTOR|LIBRERO`, `?soloVerificadas=true`) |
+| `POST /libros/:id/resenas` | Token | Una por usuario; `verificada` si compró el libro (`409 RESENA_DUPLICADA`) |
+| `GET /libros/:id/recomendaciones-libreros` | Pública | Notas de los libreros que lo recomiendan |
+
+### Reseñas, libreros y recomendaciones
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `POST /resenas`, `GET /resenas/libro/:libroId` | Token / Pública | Rutas del Hito 1, ahora persistentes; el autor es el del token |
+| `GET /resenas/mias` | Token | Mis reseñas |
+| `PATCH`/`DELETE /resenas/:id` | Autor o ADMIN | Editar o borrar |
+| `GET /libreros` | Pública | Libreros con seguidores |
+| `GET /libreros/:id` | Pública (token opcional) | Perfil completo por uuid o slug (`gregorio-samsa`) |
+| `GET /libreros/yo` | LIBRERO | Mi perfil |
+| `POST /libreros` | ADMIN | Crear perfil para un usuario LIBRERO |
+| `PATCH /libreros/:id` | Dueño o ADMIN | Editar perfil |
+| `POST`/`DELETE /libreros/:id/seguir` | Token | Seguir / dejar de seguir |
+| `GET`/`POST /libreros/:id/recomendaciones` | Pública / Dueño o ADMIN | Recomendaciones con nota (`destacada: true` las lleva al Home) |
+| `DELETE /libreros/:id/recomendaciones/:libroId` | Dueño o ADMIN | Quitar recomendación |
+| `POST /libreros/:id/colecciones` | Dueño o ADMIN | Publicar colección |
+| `GET /recomendaciones/destacadas` | Pública | Recomendados de los libreros para el Home |
+| `GET /recomendaciones/para-mi` | Token | Personalizadas (sin datos: los más vendidos) |
+
+### Listas de deseos y club de lectura
+
+Escribir requiere token; el dueño siempre es el usuario del token.
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `GET`/`POST /listas-deseos` | Token | Mis listas / crear |
+| `GET /listas-deseos/favoritos` | Token | Lista "Favoritos" (se crea sola) |
+| `POST`/`DELETE /listas-deseos/favoritos/libros/:libroId` | Token | Botón corazón |
+| `GET`/`PATCH`/`DELETE /listas-deseos/:id`, `POST /:id/libros`, `DELETE /:id/libros/:libroId` | Dueño o ADMIN | Igual que en el Hito 1 |
+| `GET /club-lectura`, `GET /club-lectura/:id`, `GET /:id/hilos`, `GET /hilos/:id/comentarios`, `GET /:id/progreso` | Pública | Leer |
+| `POST /club-lectura` | Token | Crear club (el creador queda unido) |
+| `POST`/`DELETE /club-lectura/:id/unirse` | Token | Unirse / salir |
+| `POST /club-lectura/:id/hilos`, `POST /hilos/:id/comentarios`, `PUT /:id/progreso` | Participante | `403 NO_ES_PARTICIPANTE` si no se unió |
+
+### Cupones, newsletter, invitado y administración
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `POST /cupones/validar` | Pública (token opcional) | Calcula el descuento sin consumir el cupón |
+| `GET`/`POST /cupones`, `PATCH /cupones/:codigo` | ADMIN | Administrar cupones |
+| `POST /pedidos` | Token | Acepta `codigoDescuento`; el pedido trae `descuento` y `codigoDescuento` |
+| `POST /pedidos/invitado` | Pública | Checkout sin cuenta → `{ pedido, tokenPedido }` |
+| `GET /pedidos/invitado/:id`, `POST /pedidos/invitado/:id/cancelar`, `GET /pedidos/invitado/:id/seguimiento` | Header `X-Pedido-Token` | Consultar, cancelar y seguir |
+| `POST /pagos/invitado` | Header `X-Pedido-Token` | Pagar (mismas tarjetas dummy que `POST /pagos`) |
+| `POST /newsletter/suscripciones` | Pública | Suscribirse (idempotente) |
+| `POST /newsletter/baja` | Pública | `{ token }` del enlace del correo |
+| `GET /newsletter/suscripciones` | ADMIN | Suscripciones activas |
+| `POST /admin/reiniciar-stock` | ADMIN | Repone el stock de prueba y cancela pedidos pendientes |
+
+Las ventas de cada libro (`ventas`) aumentan cuando se aprueba un pago.
+
+### Códigos de error nuevos
+
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `PRECIO_ANTERIOR_INVALIDO` | 422 | El precio anterior no es mayor que el precio |
+| `RESENA_NO_ENCONTRADA` / `RESENA_DUPLICADA` | 404 / 409 | Reseñas |
+| `LIBRERO_NO_ENCONTRADO` / `LIBRERO_YA_TIENE_PERFIL` | 404 / 409 | Libreros |
+| `LISTA_NO_ENCONTRADA` | 404 | Listas de deseos |
+| `CLUB_NO_ENCONTRADO` / `HILO_NO_ENCONTRADO` / `NO_ES_PARTICIPANTE` | 404 / 404 / 403 | Club de lectura |
+| `CUPON_NO_ENCONTRADO` | 404 | Código inexistente o desactivado |
+| `CUPON_VENCIDO` / `CUPON_AGOTADO` / `CUPON_MONTO_MINIMO` / `CUPON_YA_USADO` | 422 | Cupón no aplicable |
+| `CUPON_DUPLICADO` | 409 | Crear un código existente |
+| `TOKEN_CUENTA_INVALIDO` | 400 | Enlace de correo inválido, usado o vencido |
+| `EMAIL_YA_VERIFICADO` | 409 | Reenviar verificación de una cuenta verificada |
+| `TOKEN_PROVEEDOR_INVALIDO` | 401 | Google/Facebook no validó el token |
+| `PROVEEDOR_NO_DISPONIBLE` | 502 | Google/Facebook no respondió |
+| `PROVEEDOR_NO_CONFIGURADO` | 503 | Faltan las credenciales del proveedor en el servidor |
+| `TOKEN_PEDIDO_INVALIDO` | 401 | Falta o es inválido `X-Pedido-Token` |

@@ -26,8 +26,15 @@ export class Pedido {
   @Generated('increment')
   numero: number;
 
-  @Column({ name: 'usuario_id', type: 'uuid' })
-  usuarioId: string;
+  /** null en las compras como invitado (se identifican por invitadoEmail). */
+  @Column({ name: 'usuario_id', type: 'uuid', nullable: true })
+  usuarioId: string | null;
+
+  @Column({ name: 'invitado_email', type: 'varchar', nullable: true })
+  invitadoEmail: string | null;
+
+  @Column({ name: 'invitado_nombre', type: 'varchar', nullable: true })
+  invitadoNombre: string | null;
 
   @Column({ type: 'varchar', length: 20 })
   estado: EstadoPedido;
@@ -37,6 +44,13 @@ export class Pedido {
 
   @Column({ type: 'int' })
   subtotal: number;
+
+  /** Descuento del cupón (CLP). total = subtotal - descuento + costoEnvio. */
+  @Column({ type: 'int', default: 0 })
+  descuento: number;
+
+  @Column({ name: 'codigo_descuento', type: 'varchar', nullable: true })
+  codigoDescuento: string | null;
 
   @Column({ name: 'costo_envio', type: 'int' })
   costoEnvio: number;

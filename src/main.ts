@@ -30,13 +30,14 @@ async function bootstrap() {
   const swagger = new DocumentBuilder()
     .setTitle('LeeConNos API')
     .setDescription(
-      'API del e-commerce de libros LeeConNos — Hito 2.\n\n' +
-        '**Funcional sobre PostgreSQL:** auth (JWT), usuarios, catálogo, carrito y pedidos.\n\n' +
-        '**Dummy con reglas predecibles:** costo de envío, pago y seguimiento.\n\n' +
-        '**En memoria (contrato congelado del Hito 1):** reseñas, listas de deseos, libreros y club de lectura.\n\n' +
+      'API del e-commerce de libros LeeConNos — Hito 3.\n\n' +
+        '**Funcional sobre PostgreSQL:** auth (JWT con refresh, verificación de correo, recuperación de contraseña, ' +
+        'Google y Facebook), usuarios, catálogo con filtros y categorías del menú, carrito, cupones, pedidos ' +
+        '(también como invitado), reseñas, libreros, recomendaciones, listas de deseos, club de lectura y newsletter.\n\n' +
+        '**Dummy con reglas predecibles:** costo de envío, pago, seguimiento y envío de correos (quedan en el log).\n\n' +
         'Todos los errores usan la estructura `ErrorResponseDto` y toda respuesta incluye el header `x-request-id`.',
     )
-    .setVersion('0.2.0')
+    .setVersion('0.3.0')
     .addBearerAuth()
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger), {

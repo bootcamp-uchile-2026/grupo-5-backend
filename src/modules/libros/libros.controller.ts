@@ -25,9 +25,13 @@ import { Rol } from '../usuarios/entities/usuario.entity';
 import { BuscarLibrosDto } from './dto/buscar-libros.dto';
 import { CreateLibroDto } from './dto/create-libro.dto';
 import { ImportarIsbnDto } from './dto/importar-isbn.dto';
+import { LimiteQueryDto } from '../../common/dto/limite-query.dto';
 import {
+  FiltrosDisponiblesDto,
   GeneroDto,
+  GrupoCategoriasDto,
   LibroResponseDto,
+  LibroResumenDto,
   LibrosPaginadosDto,
 } from './dto/libro-response.dto';
 import { UpdateLibroDto } from './dto/update-libro.dto';
@@ -61,12 +65,52 @@ export class LibrosController {
   }
 
   @Public()
+  @Get('categorias')
+  @ApiOperation({
+    summary: 'Menú de géneros y temáticas de UX, con la cantidad de libros',
+    description:
+      'Cada nombre se puede usar tal cual en GET /libros?genero= o ?categoria=. ' +
+      'Una categoría con cantidad 0 es la que muestra "Aún no hay libros en este género".',
+  })
+  @ApiOkResponse({ type: [GrupoCategoriasDto] })
+  categorias(): Promise<GrupoCategoriasDto[]> {
+    return this.libros.categorias();
+  }
+
+  @Public()
+  @Get('filtros')
+  @ApiOperation({
+    summary:
+      'Valores disponibles para el panel de filtros (editoriales, subgéneros, autores, etiquetas, precios)',
+  })
+  @ApiOkResponse({ type: FiltrosDisponiblesDto })
+  filtros(): Promise<FiltrosDisponiblesDto> {
+    return this.libros.filtros();
+  }
+
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de un libro (ficha de producto)' })
   @ApiOkResponse({ type: LibroResponseDto })
   @ApiErrores(400, [404, 'LIBRO_NO_ENCONTRADO'])
   async obtener(@Param('id', UuidPipe) id: string): Promise<LibroResponseDto> {
     return LibroResponseDto.desde(await this.libros.obtener(id));
+  }
+
+  @Public()
+  @Get(':id/relacionados')
+  @ApiOperation({
+    summary: '"Lo que la comunidad también leyó" (ficha del libro)',
+    description:
+      'Libros comprados junto a este en pedidos pagados; se completa con los más vendidos de sus categorías.',
+  })
+  @ApiOkResponse({ type: [LibroResumenDto] })
+  @ApiErrores(400, [404, 'LIBRO_NO_ENCONTRADO'])
+  relacionados(
+    @Param('id', UuidPipe) id: string,
+    @Query() query: LimiteQueryDto,
+  ): Promise<LibroResumenDto[]> {
+    return this.libros.relacionados(id, query.limite);
   }
 
   @Post()

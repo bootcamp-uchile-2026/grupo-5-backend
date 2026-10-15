@@ -8,17 +8,23 @@ import {
 } from '../../../common/exceptions/app.exceptions';
 import { Rol } from '../../usuarios/entities/usuario.entity';
 import { UsuarioAutenticado } from '../decorators/current-user.decorator';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import {
+  IS_OPTIONAL_AUTH_KEY,
+  IS_PUBLIC_KEY,
+} from '../decorators/public.decorator';
 
-interface JwtPayload {
+export interface JwtPayload {
   sub: string;
   email: string;
   rol: Rol;
+  /** Solo lo llevan los tokens que no son de acceso (p. ej. "refresh"). */
+  typ?: string;
 }
 
 /**
  * Guard global: toda ruta exige un JWT válido salvo que esté marcada con
- * @Public(). Deja al usuario autenticado en req.user.
+ * @Public(). Con @AuthOpcional() el token no es obligatorio, pero si viene se
+ * valida. Deja al usuario autenticado en req.user.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -28,28 +34,32 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const esPublica = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (esPublica) return true;
+    const metadata = (clave: string) =>
+      this.reflector.getAllAndOverride<boolean>(clave, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+    const opcional = metadata(IS_OPTIONAL_AUTH_KEY);
+    if (metadata(IS_PUBLIC_KEY) && !opcional) return true;
 
     const request = context
       .switchToHttp()
       .getRequest<Request & { user?: UsuarioAutenticado }>();
     const [tipo, token] = request.headers.authorization?.split(' ') ?? [];
-    if (tipo !== 'Bearer' || !token) throw new TokenRequeridoException();
+    if (tipo !== 'Bearer' || !token) {
+      if (opcional) return true;
+      throw new TokenRequeridoException();
+    }
 
+    let payload: JwtPayload;
     try {
-      const payload = await this.jwt.verifyAsync<JwtPayload>(token);
-      request.user = {
-        id: payload.sub,
-        email: payload.email,
-        rol: payload.rol,
-      };
+      payload = await this.jwt.verifyAsync<JwtPayload>(token);
     } catch {
       throw new TokenInvalidoException();
     }
+    // Un refresh token (o el de un pedido de invitado) no sirve como token de acceso.
+    if (payload.typ) throw new TokenInvalidoException();
+    request.user = { id: payload.sub, email: payload.email, rol: payload.rol };
     return true;
   }
 }

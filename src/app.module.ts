@@ -4,13 +4,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health.controller';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CarritoModule } from './modules/carrito/carrito.module';
 import { ClubLecturaModule } from './modules/club-lectura/club-lectura.module';
+import { CuponesModule } from './modules/cupones/cupones.module';
 import { EnviosModule } from './modules/envios/envios.module';
 import { LibrerosModule } from './modules/libreros/libreros.module';
 import { LibrosModule } from './modules/libros/libros.module';
 import { ListasDeseosModule } from './modules/listas-deseos/listas-deseos.module';
+import { MailModule } from './modules/mail/mail.module';
+import { NewsletterModule } from './modules/newsletter/newsletter.module';
 import { PagosModule } from './modules/pagos/pagos.module';
 import { PedidosModule } from './modules/pedidos/pedidos.module';
 import { RecomendacionesModule } from './modules/recomendaciones/recomendaciones.module';
@@ -40,21 +44,24 @@ import { UsuariosModule } from './modules/usuarios/usuarios.module';
       }),
     }),
     // Funcionales sobre PostgreSQL
+    MailModule,
     AuthModule,
     UsuariosModule,
     LibrosModule,
     CarritoModule,
+    CuponesModule,
     PedidosModule,
-    // Dummy con reglas predecibles
-    EnviosModule,
-    PagosModule,
-    SeguimientoModule,
-    // En memoria, contrato congelado del Hito 1
     ResenasModule,
     ListasDeseosModule,
     LibrerosModule,
     ClubLecturaModule,
     RecomendacionesModule,
+    NewsletterModule,
+    AdminModule,
+    // Dummy con reglas predecibles
+    EnviosModule,
+    PagosModule,
+    SeguimientoModule,
   ],
   controllers: [HealthController],
 })

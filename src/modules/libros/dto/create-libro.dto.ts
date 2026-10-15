@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsISBN,
@@ -95,4 +97,82 @@ export class CreateLibroDto {
   @IsOptional()
   @IsUrl()
   portadaUrl?: string;
+
+  @ApiPropertyOptional({
+    example: 14990,
+    nullable: true,
+    description:
+      'Precio antes del descuento (CLP). Debe ser mayor que precio; null quita la oferta.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  precioAnterior?: number | null;
+
+  @ApiPropertyOptional({ example: 'Novela negra' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  subgenero?: string;
+
+  @ApiPropertyOptional({ example: 'Tapa blanda' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  encuadernacion?: string;
+
+  @ApiPropertyOptional({ example: 304 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(10000)
+  paginas?: number;
+
+  @ApiPropertyOptional({ example: '13 x 19 cm' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  dimensiones?: string;
+
+  @ApiPropertyOptional({
+    example: ['Ficción', 'Clásico'],
+    type: [String],
+    description: 'Etiquetas libres de la ficha',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(15)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  etiquetas?: string[];
+
+  @ApiPropertyOptional({
+    example: ['Ciencia ficción', 'Clásicos'],
+    type: [String],
+    description: 'Géneros y temáticas del menú (GET /libros/categorias)',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(15)
+  @IsString({ each: true })
+  @MaxLength(60, { each: true })
+  categorias?: string[];
+
+  @ApiPropertyOptional({
+    example: 'https://www.youtube.com/watch?v=xxxxxxxxxxx',
+    description: 'Video de la ficha (reseña en video, booktrailer)',
+  })
+  @IsOptional()
+  @IsUrl()
+  videoUrl?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Imágenes adicionales de la ficha',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsUrl({}, { each: true })
+  galeria?: string[];
 }

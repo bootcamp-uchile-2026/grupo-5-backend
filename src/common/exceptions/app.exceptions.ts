@@ -212,3 +212,161 @@ export class SeguimientoNoDisponibleException extends AppException {
     );
   }
 }
+
+// ---------- Hito 3: catálogo enriquecido ----------
+export class PrecioAnteriorInvalidoException extends AppException {
+  constructor(precio: number, precioAnterior: number) {
+    super(
+      'PRECIO_ANTERIOR_INVALIDO',
+      `El precio anterior (${precioAnterior}) debe ser mayor que el precio actual (${precio})`,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
+  }
+}
+
+// ---------- Reseñas ----------
+export class ResenaNoEncontradaException extends AppException {
+  constructor(id: string) {
+    super(
+      'RESENA_NO_ENCONTRADA',
+      `No existe una reseña con id "${id}"`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class ResenaDuplicadaException extends AppException {
+  constructor() {
+    super(
+      'RESENA_DUPLICADA',
+      'Ya escribiste una reseña para este libro; puedes editarla',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+// ---------- Libreros ----------
+export class LibreroNoEncontradoException extends AppException {
+  constructor(id: string) {
+    super(
+      'LIBRERO_NO_ENCONTRADO',
+      `No existe un librero con id o slug "${id}"`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class LibreroYaTienePerfilException extends AppException {
+  constructor() {
+    super(
+      'LIBRERO_YA_TIENE_PERFIL',
+      'El usuario ya tiene un perfil de librero, o el slug ya está en uso',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+// ---------- Listas de deseos / club de lectura ----------
+export class ListaNoEncontradaException extends AppException {
+  constructor(id: string) {
+    super(
+      'LISTA_NO_ENCONTRADA',
+      `No existe una lista de deseos con id "${id}"`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class ClubNoEncontradoException extends AppException {
+  constructor(id: string) {
+    super(
+      'CLUB_NO_ENCONTRADO',
+      `No existe un club de lectura con id "${id}"`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class HiloNoEncontradoException extends AppException {
+  constructor(id: string) {
+    super(
+      'HILO_NO_ENCONTRADO',
+      `No existe un hilo de discusión con id "${id}"`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class NoEsParticipanteException extends AppException {
+  constructor() {
+    super(
+      'NO_ES_PARTICIPANTE',
+      'Debes unirte al club de lectura antes de participar',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+// ---------- Cupones ----------
+/** Un cupón que no se puede aplicar; `codigo` dice por qué (CUPON_VENCIDO, ...). */
+export class CuponInvalidoException extends AppException {
+  constructor(
+    codigo: string,
+    detalle: string,
+    status = HttpStatus.UNPROCESSABLE_ENTITY,
+  ) {
+    super(codigo, detalle, status);
+  }
+}
+
+// ---------- Cuenta: verificación, recuperación y acceso social ----------
+export class TokenCuentaInvalidoException extends AppException {
+  constructor() {
+    super(
+      'TOKEN_CUENTA_INVALIDO',
+      'El enlace es inválido, ya se usó o expiró. Solicita uno nuevo.',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+export class EmailYaVerificadoException extends AppException {
+  constructor() {
+    super(
+      'EMAIL_YA_VERIFICADO',
+      'El correo de esta cuenta ya está verificado',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ProveedorNoConfiguradoException extends AppException {
+  constructor(proveedor: string) {
+    super(
+      'PROVEEDOR_NO_CONFIGURADO',
+      `El acceso con ${proveedor} no está habilitado en este servidor`,
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+}
+
+export class TokenProveedorInvalidoException extends AppException {
+  constructor(proveedor: string) {
+    super(
+      'TOKEN_PROVEEDOR_INVALIDO',
+      `${proveedor} no validó el token de acceso`,
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
+// ---------- Compra como invitado ----------
+export class TokenPedidoInvalidoException extends AppException {
+  constructor() {
+    super(
+      'TOKEN_PEDIDO_INVALIDO',
+      'Se requiere el header X-Pedido-Token válido entregado al crear el pedido',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}

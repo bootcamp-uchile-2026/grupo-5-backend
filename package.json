@@ -1,6 +1,6 @@
 {
   "name": "leeconnos-backend",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "API del e-commerce de libros LeeConNos",
   "author": "",
   "private": true,
@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "db:setup": "node scripts/db-setup.js",
     "db:reset": "node scripts/db-setup.js --reset",
+    "db:reset-stock": "node scripts/db-setup.js --reset-stock",
     "db:local": "npm --prefix scripts/local-db install --no-audit --no-fund && node scripts/local-db/start.js"
   },
   "dependencies": {
