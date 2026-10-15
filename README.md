@@ -386,6 +386,6 @@ docker build -t leeconnos-backend:hito-3 .
 | [`docs/servicios.md`](./docs/servicios.md) | Endpoints, reglas dummy, códigos de error, cambios de contrato |
 | [`docs/modelo-datos.md`](./docs/modelo-datos.md) | Modelo de datos y diagrama entidad-relación |
 | [`docs/despliegue.md`](./docs/despliegue.md) | Docker y despliegue en la nube |
-| [`docs/hito3-backend.md`](./docs/hito3-backend.md) | Lo agregado en el Hito 3 y guía para reemplazar los datos dummy del Front |
+| [`docs/hito 2 actualizado-backend.md`](./docs/hito 2 actualizado-backend.md) | Lo faltante que se agregó y guía para reemplazar los datos dummy del Front |
 | [`docs/hito2-backend.md`](./docs/hito2-backend.md) | Estado frente a las bases del Hito 2 y trabajo para el Hito 3 |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Flujo de ramas, commits y Pull Requests |
