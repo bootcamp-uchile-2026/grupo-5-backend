@@ -26,6 +26,14 @@ export class PedidoItemResponseDto {
   subtotal: number;
 }
 
+export class InvitadoDto {
+  @ApiProperty({ example: 'invitado@correo.cl' })
+  email: string;
+
+  @ApiProperty({ example: 'Camila Rojas' })
+  nombre: string;
+}
+
 export class PedidoResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -47,6 +55,12 @@ export class PedidoResponseDto {
 
   @ApiProperty({ example: 25980 })
   subtotal: number;
+
+  @ApiProperty({ example: 2598, description: 'Descuento por cupón (CLP)' })
+  descuento: number;
+
+  @ApiProperty({ nullable: true, type: String, example: 'BIENVENIDA10' })
+  codigoDescuento: string | null;
 
   @ApiProperty({ example: 2990 })
   costoEnvio: number;
@@ -81,6 +95,16 @@ export class PedidoResponseDto {
   @ApiProperty({ nullable: true, type: Date })
   canceladoEn: Date | null;
 
+  @ApiProperty({ description: 'true si se compró sin cuenta' })
+  esInvitado: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: InvitadoDto,
+    description: 'Datos de contacto en una compra como invitado',
+  })
+  invitado: InvitadoDto | null;
+
   static desde(p: Pedido): PedidoResponseDto {
     return {
       id: p.id,
@@ -95,6 +119,8 @@ export class PedidoResponseDto {
         subtotal: i.subtotal,
       })),
       subtotal: p.subtotal,
+      descuento: p.descuento ?? 0,
+      codigoDescuento: p.codigoDescuento ?? null,
       costoEnvio: p.costoEnvio,
       total: p.total,
       diasEstimados: p.diasEstimados,
@@ -111,6 +137,21 @@ export class PedidoResponseDto {
       creadoEn: p.creadoEn,
       pagadoEn: p.pagadoEn,
       canceladoEn: p.canceladoEn,
+      esInvitado: !p.usuarioId,
+      invitado: p.invitadoEmail
+        ? { email: p.invitadoEmail, nombre: p.invitadoNombre ?? '' }
+        : null,
     };
   }
+}
+
+export class PedidoInvitadoResponseDto {
+  @ApiProperty({ type: PedidoResponseDto })
+  pedido: PedidoResponseDto;
+
+  @ApiProperty({
+    description:
+      'Token del pedido: enviarlo en el header X-Pedido-Token para pagarlo, consultarlo, seguirlo o cancelarlo. Vence en 30 días.',
+  })
+  tokenPedido: string;
 }

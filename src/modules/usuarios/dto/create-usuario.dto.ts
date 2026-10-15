@@ -3,6 +3,7 @@ import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -14,11 +15,22 @@ import {
 import { Rol } from '../entities/usuario.entity';
 
 export class CreateUsuarioDto {
-  @ApiProperty({ example: 'Camila Rojas' })
+  @ApiProperty({
+    example: 'Camila',
+    description:
+      'Nombre. Si no se envía apellido se guarda tal cual (compatibilidad con el Hito 2).',
+  })
   @IsString()
   @MinLength(2)
   @MaxLength(80)
   nombre: string;
+
+  @ApiPropertyOptional({ example: 'Rojas' })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  apellido?: string;
 
   @ApiProperty({
     example: 'camila@correo.cl',
@@ -64,4 +76,13 @@ export class CreateUsuarioDto {
   @IsOptional()
   @IsUrl()
   avatarUrl?: string;
+
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'Casilla "Recibir novedades": suscribe el email al newsletter (se puede cambiar después)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  recibirNovedades?: boolean;
 }

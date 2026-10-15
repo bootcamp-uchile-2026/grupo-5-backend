@@ -5,6 +5,8 @@
 //
 //   npm run db:setup          -> aplica db/*.sql (idempotente)
 //   npm run db:reset          -> borra todas las tablas y vuelve a aplicarlos
+//   npm run db:reset-stock    -> repone el stock de los libros de prueba y cancela
+//                                los pedidos pendientes de pago (antes de una demo)
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client } = require('pg');
@@ -30,7 +32,20 @@ async function main() {
 
   if (process.argv.includes('--reset')) {
     console.log('Eliminando tablas...');
-    await client.query('DROP TABLE IF EXISTS pagos, pedido_items, pedidos, carrito_items, libros, usuarios CASCADE');
+    await client.query(
+      'DROP TABLE IF EXISTS club_comentarios, club_hilos, club_participantes, clubes_lectura, ' +
+        'lista_deseos_libros, listas_deseos, colecciones, recomendaciones_librero, librero_seguidores, libreros, ' +
+        'resenas, suscripciones_newsletter, tokens_usuario, categorias, migraciones_aplicadas, ' +
+        'pagos, pedido_items, pedidos, cupones, carrito_items, libros, usuarios CASCADE',
+    );
+  }
+
+  if (process.argv.includes('--reset-stock')) {
+    console.log('Reponiendo stock...');
+    await client.query(fs.readFileSync(path.join(__dirname, 'reset-stock.sql'), 'utf8'));
+    console.log('Listo: stock de prueba repuesto y pedidos pendientes cancelados.');
+    await client.end();
+    return;
   }
 
   const dir = path.join(__dirname, '..', 'db');

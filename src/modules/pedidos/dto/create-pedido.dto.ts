@@ -1,17 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsDefined,
+  IsEmail,
   IsEnum,
+  IsInt,
   IsObject,
+  IsOptional,
   IsString,
+  IsUUID,
   Matches,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { CANTIDAD_MAXIMA_POR_LIBRO } from '../../carrito/dto/carrito.dto';
+import { normalizarCodigo } from '../../cupones/dto/cupon.dto';
 import { MetodoEnvio, Region } from '../../envios/dto/envio.dto';
+import { normalizarEmail } from '../../newsletter/dto/newsletter.dto';
 
 export class DireccionDto {
   @ApiProperty({
@@ -70,4 +82,54 @@ export class CreatePedidoDto {
   @ValidateNested()
   @Type(() => DireccionDto)
   direccion?: DireccionDto;
+
+  @ApiPropertyOptional({
+    example: 'BIENVENIDA10',
+    description:
+      'Código de descuento (validar antes con POST /cupones/validar)',
+  })
+  @IsOptional()
+  @Transform(normalizarCodigo)
+  @Matches(/^[A-Z0-9_-]{3,30}$/, { message: 'codigoDescuento inválido' })
+  codigoDescuento?: string;
+}
+
+export class ItemInvitadoDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  libroId: string;
+
+  @ApiProperty({ minimum: 1, maximum: CANTIDAD_MAXIMA_POR_LIBRO, example: 1 })
+  @IsInt()
+  @Min(1)
+  @Max(CANTIDAD_MAXIMA_POR_LIBRO)
+  cantidad: number;
+}
+
+/**
+ * Compra como invitado: sin cuenta ni carrito en el servidor. Los libros van
+ * en el body (el Front guarda el carrito localmente).
+ */
+export class CrearPedidoInvitadoDto extends CreatePedidoDto {
+  @ApiProperty({
+    example: 'invitado@correo.cl',
+    description: 'Para la confirmación y para consultar el pedido',
+  })
+  @Transform(normalizarEmail)
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: 'Camila Rojas' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  nombre: string;
+
+  @ApiProperty({ type: [ItemInvitadoDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => ItemInvitadoDto)
+  items: ItemInvitadoDto[];
 }

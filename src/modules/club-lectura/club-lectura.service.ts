@@ -1,114 +1,248 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import { CreateClubLecturaDto } from './dto/create-club-lectura.dto';
-import { CreateHiloDiscusionDto } from './dto/create-hilo-discusion.dto';
-import { CreateComentarioDto } from './dto/create-comentario.dto';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
+import {
+  ClubNoEncontradoException,
+  HiloNoEncontradoException,
+  NoEsParticipanteException,
+  PermisoDenegadoException,
+} from '../../common/exceptions/app.exceptions';
+import { UsuarioAutenticado } from '../auth/decorators/current-user.decorator';
+import { LibrosService } from '../libros/libros.service';
+import { Rol } from '../usuarios/entities/usuario.entity';
 import { ActualizarProgresoDto } from './dto/actualizar-progreso.dto';
 import {
+  ClubResponseDto,
+  ComentarioResponseDto,
+  HiloResponseDto,
+  ProgresoResponseDto,
+} from './dto/club-response.dto';
+import { CreateClubLecturaDto } from './dto/create-club-lectura.dto';
+import { CreateComentarioDto } from './dto/create-comentario.dto';
+import { CreateHiloDiscusionDto } from './dto/create-hilo-discusion.dto';
+import {
   ClubLectura,
-  HiloDiscusion,
+  ClubParticipante,
   ComentarioHilo,
-  ProgresoLectura,
+  HiloDiscusion,
 } from './entities/club-lectura.entity';
 
 /**
- * Servicio del Club de Lectura (esfuerzo diferencial del proyecto).
- * Gestiona clubes, hilos de discusión, comentarios y progreso de lectura
- * compartido entre los participantes.
+ * Club de lectura (esfuerzo diferencial del proyecto): clubes sobre un libro
+ * del catálogo, hilos de discusión, comentarios y progreso compartido.
+ * Persistido en PostgreSQL desde el Hito 3. Leer es público; participar
+ * requiere sesión y haberse unido al club.
  */
 @Injectable()
 export class ClubLecturaService {
-  private readonly clubes: ClubLectura[] = [];
-  private readonly hilos: HiloDiscusion[] = [];
-  private readonly comentarios: ComentarioHilo[] = [];
-  private readonly progresos: ProgresoLectura[] = [];
+  constructor(
+    @InjectRepository(ClubLectura)
+    private readonly clubes: Repository<ClubLectura>,
+    @InjectRepository(ClubParticipante)
+    private readonly participantes: Repository<ClubParticipante>,
+    @InjectRepository(HiloDiscusion)
+    private readonly hilos: Repository<HiloDiscusion>,
+    @InjectRepository(ComentarioHilo)
+    private readonly comentarios: Repository<ComentarioHilo>,
+    private readonly libros: LibrosService,
+  ) {}
 
-  crearClub(dto: CreateClubLecturaDto): ClubLectura {
-    const club: ClubLectura = {
-      id: randomUUID(),
-      libroId: dto.libroId,
-      titulo: dto.titulo,
-      descripcion: dto.descripcion,
-      fechaInicio: new Date(dto.fechaInicio),
-      fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
-      participantes: [],
-    };
-    this.clubes.push(club);
+  async crearClub(
+    creador: UsuarioAutenticado,
+    dto: CreateClubLecturaDto,
+  ): Promise<ClubResponseDto> {
+    await this.libros.obtener(dto.libroId);
+    const club = await this.clubes.save(
+      this.clubes.create({
+        libroId: dto.libroId,
+        creadorId: creador.id,
+        titulo: dto.titulo,
+        descripcion: dto.descripcion ?? null,
+        fechaInicio: dto.fechaInicio,
+        fechaFin: dto.fechaFin ?? null,
+      }),
+    );
+    await this.participantes.insert({ clubId: club.id, usuarioId: creador.id });
+    return this.obtenerClub(club.id);
+  }
+
+  async listarClubes(): Promise<ClubResponseDto[]> {
+    const clubes = await this.clubes.find({
+      relations: { libro: true },
+      order: { fechaInicio: 'DESC' },
+    });
+    const filas = clubes.length
+      ? await this.participantes.find({
+          where: { clubId: In(clubes.map((c) => c.id)) },
+        })
+      : [];
+    return clubes.map((c) =>
+      ClubResponseDto.desde(
+        c,
+        filas.filter((p) => p.clubId === c.id).map((p) => p.usuarioId),
+      ),
+    );
+  }
+
+  async obtenerClub(id: string): Promise<ClubResponseDto> {
+    const club = await this.club(id);
+    const filas = await this.participantes.find({
+      where: { clubId: id },
+      order: { unidoEn: 'ASC' },
+    });
+    return ClubResponseDto.desde(
+      club,
+      filas.map((p) => p.usuarioId),
+    );
+  }
+
+  async unirse(
+    clubId: string,
+    usuarioId: string,
+    actual: UsuarioAutenticado,
+  ): Promise<ClubResponseDto> {
+    this.exigirMismoUsuario(usuarioId, actual);
+    await this.club(clubId);
+    await this.participantes
+      .createQueryBuilder()
+      .insert()
+      .values({ clubId, usuarioId })
+      .orIgnore()
+      .execute();
+    return this.obtenerClub(clubId);
+  }
+
+  async salir(clubId: string, usuarioId: string): Promise<ClubResponseDto> {
+    await this.club(clubId);
+    await this.participantes.delete({ clubId, usuarioId });
+    return this.obtenerClub(clubId);
+  }
+
+  async crearHilo(
+    clubId: string,
+    autor: UsuarioAutenticado,
+    dto: CreateHiloDiscusionDto,
+  ): Promise<HiloResponseDto> {
+    await this.exigirParticipante(clubId, autor);
+    const hilo = await this.hilos.save(
+      this.hilos.create({
+        clubLecturaId: clubId,
+        usuarioId: autor.id,
+        titulo: dto.titulo,
+        contenido: dto.contenido,
+      }),
+    );
+    return HiloResponseDto.desde(
+      await this.hilos.findOneOrFail({
+        where: { id: hilo.id },
+        relations: { usuario: true },
+      }),
+    );
+  }
+
+  async listarHilos(clubId: string): Promise<HiloResponseDto[]> {
+    await this.club(clubId);
+    const hilos = await this.hilos.find({
+      where: { clubLecturaId: clubId },
+      relations: { usuario: true },
+      order: { fechaCreacion: 'DESC' },
+    });
+    return hilos.map((h) => HiloResponseDto.desde(h));
+  }
+
+  async comentar(
+    hiloId: string,
+    autor: UsuarioAutenticado,
+    dto: CreateComentarioDto,
+  ): Promise<ComentarioResponseDto> {
+    const hilo = await this.hilo(hiloId);
+    await this.exigirParticipante(hilo.clubLecturaId, autor);
+    const comentario = await this.comentarios.save(
+      this.comentarios.create({
+        hiloId,
+        usuarioId: autor.id,
+        contenido: dto.contenido,
+      }),
+    );
+    return ComentarioResponseDto.desde(
+      await this.comentarios.findOneOrFail({
+        where: { id: comentario.id },
+        relations: { usuario: true },
+      }),
+    );
+  }
+
+  async listarComentarios(hiloId: string): Promise<ComentarioResponseDto[]> {
+    await this.hilo(hiloId);
+    const comentarios = await this.comentarios.find({
+      where: { hiloId },
+      relations: { usuario: true },
+      order: { fechaCreacion: 'ASC' },
+    });
+    return comentarios.map((c) => ComentarioResponseDto.desde(c));
+  }
+
+  async actualizarProgreso(
+    clubId: string,
+    usuarioId: string,
+    actual: UsuarioAutenticado,
+    dto: ActualizarProgresoDto,
+  ): Promise<ProgresoResponseDto> {
+    this.exigirMismoUsuario(usuarioId, actual);
+    await this.exigirParticipante(clubId, { ...actual, id: usuarioId });
+    await this.participantes.update(
+      { clubId, usuarioId },
+      { paginaActual: dto.paginaActual, porcentaje: dto.porcentaje },
+    );
+    return ProgresoResponseDto.desde(
+      await this.participantes.findOneOrFail({
+        where: { clubId, usuarioId },
+        relations: { usuario: true },
+      }),
+    );
+  }
+
+  async progresoCompartido(clubId: string): Promise<ProgresoResponseDto[]> {
+    await this.club(clubId);
+    const filas = await this.participantes.find({
+      where: { clubId },
+      relations: { usuario: true },
+      order: { porcentaje: 'DESC' },
+    });
+    return filas.map((p) => ProgresoResponseDto.desde(p));
+  }
+
+  private async club(id: string): Promise<ClubLectura> {
+    const club = await this.clubes.findOne({
+      where: { id },
+      relations: { libro: true },
+    });
+    if (!club) throw new ClubNoEncontradoException(id);
     return club;
   }
 
-  listarClubes(): ClubLectura[] {
-    return this.clubes;
-  }
-
-  obtenerClub(id: string): ClubLectura {
-    const club = this.clubes.find((c) => c.id === id);
-    if (!club)
-      throw new NotFoundException(`Club de lectura ${id} no encontrado`);
-    return club;
-  }
-
-  unirseAClub(clubId: string, usuarioId: string): ClubLectura {
-    const club = this.obtenerClub(clubId);
-    if (!club.participantes.includes(usuarioId)) {
-      club.participantes.push(usuarioId);
-    }
-    return club;
-  }
-
-  crearHilo(clubId: string, dto: CreateHiloDiscusionDto): HiloDiscusion {
-    this.obtenerClub(clubId);
-    const hilo: HiloDiscusion = {
-      id: randomUUID(),
-      clubLecturaId: clubId,
-      fechaCreacion: new Date(),
-      ...dto,
-    };
-    this.hilos.push(hilo);
+  private async hilo(id: string): Promise<HiloDiscusion> {
+    const hilo = await this.hilos.findOneBy({ id });
+    if (!hilo) throw new HiloNoEncontradoException(id);
     return hilo;
   }
 
-  listarHilos(clubId: string): HiloDiscusion[] {
-    return this.hilos.filter((h) => h.clubLecturaId === clubId);
-  }
-
-  comentarHilo(hiloId: string, dto: CreateComentarioDto): ComentarioHilo {
-    const hiloExiste = this.hilos.some((h) => h.id === hiloId);
-    if (!hiloExiste)
-      throw new NotFoundException(`Hilo ${hiloId} no encontrado`);
-    const comentario: ComentarioHilo = {
-      id: randomUUID(),
-      hiloId,
-      fechaCreacion: new Date(),
-      ...dto,
-    };
-    this.comentarios.push(comentario);
-    return comentario;
-  }
-
-  listarComentarios(hiloId: string): ComentarioHilo[] {
-    return this.comentarios.filter((c) => c.hiloId === hiloId);
-  }
-
-  actualizarProgreso(
+  private async exigirParticipante(
     clubId: string,
-    usuarioId: string,
-    dto: ActualizarProgresoDto,
-  ): ProgresoLectura {
-    this.obtenerClub(clubId);
-    let progreso = this.progresos.find(
-      (p) => p.clubLecturaId === clubId && p.usuarioId === usuarioId,
-    );
-    if (!progreso) {
-      progreso = { id: randomUUID(), clubLecturaId: clubId, usuarioId, ...dto };
-      this.progresos.push(progreso);
-    } else {
-      Object.assign(progreso, dto);
-    }
-    return progreso;
+    usuario: UsuarioAutenticado,
+  ): Promise<void> {
+    await this.club(clubId);
+    if (
+      usuario.rol !== Rol.ADMIN &&
+      !(await this.participantes.existsBy({ clubId, usuarioId: usuario.id }))
+    )
+      throw new NoEsParticipanteException();
   }
 
-  obtenerProgresoCompartido(clubId: string): ProgresoLectura[] {
-    return this.progresos.filter((p) => p.clubLecturaId === clubId);
+  private exigirMismoUsuario(usuarioId: string, actual: UsuarioAutenticado) {
+    if (actual.rol !== Rol.ADMIN && actual.id !== usuarioId)
+      throw new PermisoDenegadoException(
+        'Solo puedes actuar en nombre de tu propia cuenta',
+      );
   }
 }

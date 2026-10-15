@@ -89,7 +89,10 @@ sudo netfilter-persistent save
 | Tarea | Comando |
 |---|---|
 | Ver logs de la API (ahí aparece el `x-request-id` de cada petición) | `docker compose logs -f api` |
-| Actualizar a una versión nueva | `git pull` y luego `docker compose up -d --build` |
+| Actualizar a una versión nueva | `git pull`, `docker compose up -d --build` y `docker compose exec api node scripts/db-setup.js` (aplica las migraciones nuevas sin borrar datos) |
+| Reponer el stock de prueba antes de una revisión | `POST /admin/reiniciar-stock` con un usuario ADMIN, o `docker compose exec api node scripts/db-setup.js --reset-stock` |
+| Activar HTTPS (Caddy + Let's Encrypt) | Definir `DOMINIO` en `.env` (sin dominio propio: `3-131-220-134.sslip.io`), abrir los puertos 80 y 443, y `docker compose --profile https up -d` |
+| Ver los correos dummy (verificación, contraseña) | `docker compose logs api \| grep correo_enviado` |
 | Volver a aplicar los scripts SQL (no borra datos) | `docker compose exec api node scripts/db-setup.js` |
 | Reiniciar la base con los datos de prueba (**borra todo**) | `docker compose exec api node scripts/db-setup.js --reset` |
 | Entrar a la base | `docker compose exec db psql -U leeconnos` |

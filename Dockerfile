@@ -16,7 +16,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 # Scripts SQL + utilitario para aplicarlos: docker compose exec api node scripts/db-setup.js
 COPY db ./db
-COPY scripts/db-setup.js ./scripts/db-setup.js
+COPY scripts/db-setup.js scripts/reset-stock.sql ./scripts/
 
 # No ejecutar como root
 USER node

@@ -1,61 +1,170 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  ListaNoEncontradaException,
+  PermisoDenegadoException,
+} from '../../common/exceptions/app.exceptions';
+import { UsuarioAutenticado } from '../auth/decorators/current-user.decorator';
+import { LibrosService } from '../libros/libros.service';
+import { Rol } from '../usuarios/entities/usuario.entity';
+import { ListaDeseosResponseDto } from './dto/agregar-libro-lista.dto';
 import { CreateListaDeseosDto } from './dto/create-lista-deseos.dto';
 import { UpdateListaDeseosDto } from './dto/update-lista-deseos.dto';
-import { ListaDeseos } from './entities/lista-deseos.entity';
+import { ListaDeseos, ListaDeseosLibro } from './entities/lista-deseos.entity';
 
+/** Listas de deseos del usuario, persistidas en PostgreSQL desde el Hito 3. */
 @Injectable()
 export class ListasDeseosService {
-  private readonly listas: ListaDeseos[] = [];
+  constructor(
+    @InjectRepository(ListaDeseos)
+    private readonly repo: Repository<ListaDeseos>,
+    @InjectRepository(ListaDeseosLibro)
+    private readonly items: Repository<ListaDeseosLibro>,
+    private readonly libros: LibrosService,
+  ) {}
 
-  create(dto: CreateListaDeseosDto): ListaDeseos {
-    const lista: ListaDeseos = {
-      id: randomUUID(),
-      usuarioId: dto.usuarioId,
-      nombre: dto.nombre,
-      esParaRegalo: dto.esParaRegalo ?? false,
-      libros: [],
-      fechaCreacion: new Date(),
-    };
-    this.listas.push(lista);
+  async crear(
+    usuarioId: string,
+    dto: CreateListaDeseosDto,
+  ): Promise<ListaDeseosResponseDto> {
+    const lista = await this.repo.save(
+      this.repo.create({
+        usuarioId,
+        nombre: dto.nombre,
+        esParaRegalo: dto.esParaRegalo ?? false,
+        esFavoritos: false,
+      }),
+    );
+    return this.respuesta(lista.id);
+  }
+
+  async delUsuario(
+    usuarioId: string,
+    actual: UsuarioAutenticado,
+  ): Promise<ListaDeseosResponseDto[]> {
+    if (actual.rol !== Rol.ADMIN && actual.id !== usuarioId)
+      throw new PermisoDenegadoException();
+    const listas = await this.repo.find({
+      where: { usuarioId },
+      relations: { libros: true },
+      order: { esFavoritos: 'DESC', creadoEn: 'ASC' },
+    });
+    const resumenes = await this.libros.resumenes(
+      listas.flatMap((l) => l.libros.map((i) => i.libroId)),
+    );
+    return listas.map((l) => ListaDeseosResponseDto.desde(l, resumenes));
+  }
+
+  async obtener(
+    id: string,
+    actual: UsuarioAutenticado,
+  ): Promise<ListaDeseosResponseDto> {
+    await this.propia(id, actual);
+    return this.respuesta(id);
+  }
+
+  async favoritos(usuarioId: string): Promise<ListaDeseosResponseDto> {
+    return this.respuesta((await this.listaFavoritos(usuarioId)).id);
+  }
+
+  async marcarFavorito(
+    usuarioId: string,
+    libroId: string,
+    marcar: boolean,
+  ): Promise<ListaDeseosResponseDto> {
+    const lista = await this.listaFavoritos(usuarioId);
+    return marcar
+      ? this.agregarA(lista.id, libroId)
+      : this.quitarDe(lista.id, libroId);
+  }
+
+  async actualizar(
+    id: string,
+    actual: UsuarioAutenticado,
+    dto: UpdateListaDeseosDto,
+  ): Promise<ListaDeseosResponseDto> {
+    const lista = await this.propia(id, actual);
+    if (dto.nombre !== undefined) lista.nombre = dto.nombre;
+    if (dto.esParaRegalo !== undefined) lista.esParaRegalo = dto.esParaRegalo;
+    await this.repo.save(lista);
+    return this.respuesta(id);
+  }
+
+  async agregarLibro(
+    id: string,
+    actual: UsuarioAutenticado,
+    libroId: string,
+  ): Promise<ListaDeseosResponseDto> {
+    await this.propia(id, actual);
+    return this.agregarA(id, libroId);
+  }
+
+  async quitarLibro(
+    id: string,
+    actual: UsuarioAutenticado,
+    libroId: string,
+  ): Promise<ListaDeseosResponseDto> {
+    await this.propia(id, actual);
+    return this.quitarDe(id, libroId);
+  }
+
+  async eliminar(id: string, actual: UsuarioAutenticado): Promise<void> {
+    await this.propia(id, actual);
+    await this.repo.delete({ id });
+  }
+
+  private async agregarA(
+    listaId: string,
+    libroId: string,
+  ): Promise<ListaDeseosResponseDto> {
+    await this.libros.obtener(libroId);
+    await this.items
+      .createQueryBuilder()
+      .insert()
+      .values({ listaId, libroId })
+      .orIgnore()
+      .execute();
+    return this.respuesta(listaId);
+  }
+
+  private async quitarDe(
+    listaId: string,
+    libroId: string,
+  ): Promise<ListaDeseosResponseDto> {
+    await this.items.delete({ listaId, libroId });
+    return this.respuesta(listaId);
+  }
+
+  private async listaFavoritos(usuarioId: string): Promise<ListaDeseos> {
+    await this.repo
+      .createQueryBuilder()
+      .insert()
+      .values({ usuarioId, nombre: 'Favoritos', esFavoritos: true })
+      .orIgnore()
+      .execute();
+    return this.repo.findOneByOrFail({ usuarioId, esFavoritos: true });
+  }
+
+  private async propia(
+    id: string,
+    actual: UsuarioAutenticado,
+  ): Promise<ListaDeseos> {
+    const lista = await this.repo.findOneBy({ id });
+    if (!lista) throw new ListaNoEncontradaException(id);
+    if (actual.rol !== Rol.ADMIN && lista.usuarioId !== actual.id)
+      throw new PermisoDenegadoException('La lista pertenece a otro usuario');
     return lista;
   }
 
-  findByUsuario(usuarioId: string): ListaDeseos[] {
-    return this.listas.filter((l) => l.usuarioId === usuarioId);
-  }
-
-  findOne(id: string): ListaDeseos {
-    const lista = this.listas.find((l) => l.id === id);
-    if (!lista)
-      throw new NotFoundException(`Lista de deseos ${id} no encontrada`);
-    return lista;
-  }
-
-  update(id: string, dto: UpdateListaDeseosDto): ListaDeseos {
-    const lista = this.findOne(id);
-    Object.assign(lista, dto);
-    return lista;
-  }
-
-  agregarLibro(id: string, libroId: string): ListaDeseos {
-    const lista = this.findOne(id);
-    if (!lista.libros.includes(libroId)) {
-      lista.libros.push(libroId);
-    }
-    return lista;
-  }
-
-  quitarLibro(id: string, libroId: string): ListaDeseos {
-    const lista = this.findOne(id);
-    lista.libros = lista.libros.filter((l) => l !== libroId);
-    return lista;
-  }
-
-  remove(id: string): void {
-    const index = this.listas.findIndex((l) => l.id === id);
-    if (index === -1)
-      throw new NotFoundException(`Lista de deseos ${id} no encontrada`);
-    this.listas.splice(index, 1);
+  private async respuesta(id: string): Promise<ListaDeseosResponseDto> {
+    const lista = await this.repo.findOneOrFail({
+      where: { id },
+      relations: { libros: true },
+    });
+    const resumenes = await this.libros.resumenes(
+      lista.libros.map((l) => l.libroId),
+    );
+    return ListaDeseosResponseDto.desde(lista, resumenes);
   }
 }

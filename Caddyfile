@@ -1,0 +1,8 @@
+# Proxy HTTPS delante de la API (perfil "https" de docker-compose.yml).
+# Caddy pide y renueva solo el certificado de Let's Encrypt para {$DOMINIO}.
+# Con la API en https, una Web publicada en https ya no tiene llamadas bloqueadas
+# por "contenido mixto".
+{$DOMINIO} {
+	encode gzip
+	reverse_proxy api:{$API_PORT}
+}

@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -18,7 +20,24 @@ export enum OrdenLibros {
   PRECIO_ASC = 'precio_asc',
   PRECIO_DESC = 'precio_desc',
   TITULO = 'titulo',
+  MAS_VENDIDOS = 'mas_vendidos',
+  MEJOR_CALIFICADOS = 'mejor_calificados',
+  MAS_COMENTADOS = 'mas_comentados',
+  MAYOR_DESCUENTO = 'mayor_descuento',
 }
+
+/** Acepta ?x=a,b y también ?x=a&x=b; siempre entrega un arreglo sin vacíos. */
+const lista = ({ value }: { value: unknown }) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const valores = (Array.isArray(value) ? value : [value]) as unknown[];
+  return valores
+    .flatMap((v) => (typeof v === 'string' ? v.split(',') : [v]))
+    .map((v) => (typeof v === 'string' ? v.trim() : v))
+    .filter((v) => v !== '');
+};
+
+const booleano = ({ value }: { value: unknown }) =>
+  value === 'true' ? true : value === 'false' ? false : value;
 
 /** Parámetros de búsqueda, filtros, orden y paginación del catálogo. */
 export class BuscarLibrosDto {
@@ -34,7 +53,9 @@ export class BuscarLibrosDto {
 
   @ApiPropertyOptional({
     example: 'Ciencia ficción',
-    description: 'Género exacto (sin distinguir mayúsculas)',
+    description:
+      'Género de la API o categoría del menú de UX, exacto y sin distinguir mayúsculas ' +
+      '(p. ej. "Policial", "Romance" o "Misterio y thriller")',
   })
   @IsOptional()
   @IsString()
@@ -49,6 +70,76 @@ export class BuscarLibrosDto {
   @IsString()
   @MaxLength(120)
   autor?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: 'Isabel Allende,Julio Cortázar',
+    description:
+      'Varios autores a la vez (coincidencia parcial con cualquiera). Separados por coma o repitiendo el parámetro.',
+  })
+  @IsOptional()
+  @Transform(lista)
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(120, { each: true })
+  autores?: string[];
+
+  @ApiPropertyOptional({
+    example: 'Anagrama',
+    description: 'Coincidencia parcial en la editorial',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  editorial?: string;
+
+  @ApiPropertyOptional({
+    example: 'Novela negra',
+    description: 'Subgénero exacto (sin distinguir mayúsculas)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  subgenero?: string;
+
+  @ApiPropertyOptional({
+    example: 'Clásicos',
+    description:
+      'Categoría o temática del menú de UX (GET /libros/categorias), exacta',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  categoria?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: 'Clásico,Chile',
+    description: 'Libros que tengan todas estas etiquetas',
+  })
+  @IsOptional()
+  @Transform(lista)
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  etiquetas?: string[];
+
+  @ApiPropertyOptional({
+    description: 'true: solo libros en oferta (con precio anterior)',
+  })
+  @IsOptional()
+  @Transform(booleano)
+  @IsBoolean()
+  enOferta?: boolean;
+
+  @ApiPropertyOptional({ example: 4, minimum: 0, maximum: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  @Min(0)
+  @Max(5)
+  calificacionMin?: number;
 
   @ApiPropertyOptional({ enum: FormatoLibro })
   @IsOptional()
@@ -78,9 +169,7 @@ export class BuscarLibrosDto {
     description: 'true: solo libros con stock mayor que 0',
   })
   @IsOptional()
-  @Transform(({ value }: { value: unknown }) =>
-    value === 'true' ? true : value === 'false' ? false : value,
-  )
+  @Transform(booleano)
   @IsBoolean()
   enStock?: boolean;
 

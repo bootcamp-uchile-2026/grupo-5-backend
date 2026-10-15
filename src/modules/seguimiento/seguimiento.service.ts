@@ -57,7 +57,17 @@ export class SeguimientoService {
     pedidoId: string,
     usuario: UsuarioAutenticado,
   ): Promise<SeguimientoResponseDto> {
-    const pedido = await this.pedidos.obtener(pedidoId, usuario);
+    return this.construir(await this.pedidos.obtener(pedidoId, usuario));
+  }
+
+  async consultarInvitado(
+    pedidoId: string,
+    token?: string,
+  ): Promise<SeguimientoResponseDto> {
+    return this.construir(await this.pedidos.obtenerInvitado(pedidoId, token));
+  }
+
+  private construir(pedido: Pedido): SeguimientoResponseDto {
     const base = {
       pedidoId: pedido.id,
       numero: numeroPedido(pedido.numero),

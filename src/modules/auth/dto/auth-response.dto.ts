@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UsuarioResponseDto } from '../../usuarios/dto/usuario-response.dto';
 
 export class AuthResponseDto {
@@ -17,6 +17,24 @@ export class AuthResponseDto {
   })
   expiresIn: string;
 
+  @ApiProperty({
+    description:
+      'Token para pedir un accessToken nuevo con POST /auth/refresh sin volver a iniciar sesión',
+  })
+  refreshToken: string;
+
+  @ApiProperty({
+    example: '7d',
+    description: 'Vigencia del refreshToken (JWT_REFRESH_EXPIRES_IN)',
+  })
+  refreshExpiresIn: string;
+
   @ApiProperty({ type: UsuarioResponseDto })
   usuario: UsuarioResponseDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Solo al registrarse en desarrollo con EXPONER_TOKENS_DEV=true: token de verificación de correo',
+  })
+  tokenVerificacionDesarrollo?: string;
 }
