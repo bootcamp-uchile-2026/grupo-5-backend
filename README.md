@@ -9,10 +9,9 @@ comprar, pagar y seguir un pedido. Suma perfiles de libreros con secciones curad
 recomendaciones según géneros e historial de compras, club de lectura, reseñas y listas de
 deseos. El catálogo se enriquece con metadatos de la API gratuita de **Open Library**.
 
-> Entrega correspondiente al **Hito 3** del Bootcamp DCC — Universidad de Chile. Lo nuevo respecto del
-> Hito 2 está en [`docs/hito3-backend.md`](./docs/hito3-backend.md).
+> Entrega correspondiente al **Hito 2** del Bootcamp DCC — Universidad de Chile.
 
-| Estado en el Hito 3 | Módulos | Persistencia |
+| Estado en el Hito 2 | Módulos | Persistencia |
 |---|---|---|
 | **Funcional** | auth (JWT con refresh, verificación de correo, recuperación de contraseña, Google y Facebook), usuarios, catálogo con filtros y categorías del menú, carrito, cupones, pedidos (también como invitado), reseñas, libreros, recomendaciones, listas de deseos, club de lectura, newsletter | PostgreSQL |
 | **Dummy con reglas predecibles** | costo de envío, pago, seguimiento, envío de correos | Reglas fijas |
