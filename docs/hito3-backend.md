@@ -1,4 +1,4 @@
-# Hito 3 · Lo que agregó Backend
+# Hito 2 actualización · Lo que agregó Backend
 
 Este documento resume los cambios de la rama `feature/hito3-backend-ux`. Cubre lo que UX diseñó y la API no
 tenía (el Front lo mostraba con datos de prueba) y los puntos pendientes que levantó el equipo Web.
