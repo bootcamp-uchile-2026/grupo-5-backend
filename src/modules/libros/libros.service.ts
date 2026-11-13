@@ -104,6 +104,21 @@ export class LibrosService {
       });
     if (filtros.autor)
       qb.andWhere('l.autor ILIKE :autor', { autor: patron(filtros.autor) });
+    if (filtros.editoriales?.length) {
+      const params = Object.fromEntries(
+        filtros.editoriales.map((e, i) => [`editorial${i}`, patron(e)]),
+      );
+      qb.andWhere(
+        `(${Object.keys(params)
+          .map((k) => `l.editorial ILIKE :${k}`)
+          .join(' OR ')})`,
+        params,
+      );
+    }
+    if (filtros.subgeneros?.length)
+      qb.andWhere('LOWER(l.subgenero) IN (:...subgeneros)', {
+        subgeneros: filtros.subgeneros.map((s) => s.toLowerCase()),
+      });
     if (filtros.autores?.length) {
       const params = Object.fromEntries(
         filtros.autores.map((a, i) => [`autor${i}`, patron(a)]),
@@ -210,13 +225,35 @@ export class LibrosService {
   }
 
   /** Valores existentes para el panel de filtros (editorial, subgénero, autor...). */
-  async filtros(): Promise<FiltrosDisponiblesDto> {
+  async filtros(
+    contexto: { q?: string; genero?: string } = {},
+  ): Promise<FiltrosDisponiblesDto> {
+    // Los libros a considerar: todo el catálogo, o solo los que coinciden con la
+    // búsqueda (q) y el género, con las mismas reglas que GET /libros.
+    const base = this.repo
+      .createQueryBuilder('l')
+      .select('l.id')
+      .where('l.activo = true');
+    if (contexto.q)
+      base.andWhere(
+        '(l.titulo ILIKE :q OR l.autor ILIKE :q OR l.isbn ILIKE :q)',
+        { q: patron(contexto.q) },
+      );
+    if (contexto.genero)
+      base.andWhere(
+        `(LOWER(l.genero) = LOWER(:genero) OR ${enCategoria('genero')})`,
+        { genero: contexto.genero.trim() },
+      );
+    const [subconsulta, params] = base.getQueryAndParameters();
+    const filtrados = `l.id IN (${subconsulta})`;
+
     // Las columnas vienen de una lista fija del código, nunca del usuario.
     const conteo = (columna: 'editorial' | 'subgenero' | 'autor') =>
       this.repo.query<ValorConteoDto[]>(
         `SELECT ${columna} AS valor, COUNT(*)::int AS cantidad
-           FROM libros WHERE activo AND ${columna} IS NOT NULL
+           FROM libros l WHERE ${filtrados} AND ${columna} IS NOT NULL
           GROUP BY 1 ORDER BY 2 DESC, 1 ASC`,
+        params,
       );
     const [editoriales, subgeneros, autores, etiquetas, rango] =
       await Promise.all([
@@ -225,13 +262,15 @@ export class LibrosService {
         conteo('autor'),
         this.repo.query<ValorConteoDto[]>(
           `SELECT et AS valor, COUNT(*)::int AS cantidad
-             FROM libros l, unnest(l.etiquetas) AS et WHERE l.activo
+             FROM libros l, unnest(l.etiquetas) AS et WHERE ${filtrados}
             GROUP BY 1 ORDER BY 2 DESC, 1 ASC`,
+          params,
         ),
         this.repo.query<{ min: number; max: number; oferta: number }[]>(
           `SELECT COALESCE(MIN(precio), 0)::int AS min, COALESCE(MAX(precio), 0)::int AS max,
                   COUNT(*) FILTER (WHERE precio_anterior IS NOT NULL)::int AS oferta
-             FROM libros WHERE activo`,
+             FROM libros l WHERE ${filtrados}`,
+          params,
         ),
       ]);
     return {

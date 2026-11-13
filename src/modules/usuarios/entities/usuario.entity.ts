@@ -62,6 +62,10 @@ export class Usuario {
   proveedorAuth: ProveedorAuth;
 
   /** Id del usuario en Google/Facebook (claim "sub" o id de la Graph API). */
+  /** Se incrementa al cerrar sesión: invalida los refresh tokens emitidos. */
+  @Column({ name: 'version_sesion', type: 'int', default: 0 })
+  versionSesion: number;
+
   @Column({ name: 'proveedor_id', type: 'varchar', nullable: true })
   proveedorId: string | null;
 

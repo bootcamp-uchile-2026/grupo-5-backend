@@ -131,6 +131,9 @@ export class PedidoResponseDto {
             comuna: p.dirComuna,
             region: p.dirRegion,
             telefono: p.dirTelefono,
+            rut: p.dirRut ?? undefined,
+            ciudad: p.dirCiudad ?? undefined,
+            codigoPostal: p.dirCodigoPostal ?? undefined,
           } as DireccionDto)
         : null,
       codigoSeguimiento: p.codigoSeguimiento,

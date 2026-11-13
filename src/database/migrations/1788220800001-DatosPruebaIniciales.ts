@@ -1,3 +1,15 @@
+import { MigrationInterface, QueryRunner } from 'typeorm';
+
+/**
+ * Hito 2: 3 cuentas de prueba (una por rol) y 24 libros.
+ * Contenido original: db/02-seed.sql. Es idempotente, así que también se
+ * puede aplicar sobre una base creada con los scripts SQL de hitos anteriores.
+ */
+export class DatosPruebaIniciales1788220800001 implements MigrationInterface {
+  name = 'DatosPruebaIniciales1788220800001';
+
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
 -- LeeConNos · Hito 2 · Datos de prueba
 -- Idempotente: si los registros ya existen no los duplica ni los pisa.
 
@@ -71,3 +83,13 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 UPDATE libros SET portada_url = 'https://covers.openlibrary.org/b/isbn/' || isbn || '-L.jpg' WHERE portada_url IS NULL;
+`);
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      DELETE FROM libros WHERE id::text BETWEEN '00000000-0000-4000-8000-000000000001' AND '00000000-0000-4000-8000-000000000024' AND NOT EXISTS (SELECT 1 FROM pedido_items pi WHERE pi.libro_id = libros.id);
+      DELETE FROM usuarios WHERE id IN ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333') AND NOT EXISTS (SELECT 1 FROM pedidos p WHERE p.usuario_id = usuarios.id);
+    `);
+  }
+}

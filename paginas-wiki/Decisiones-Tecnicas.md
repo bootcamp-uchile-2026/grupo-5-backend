@@ -1,42 +1,39 @@
-# Decisiones Técnicas
+# Decisiones técnicas
 
-Principales decisiones adoptadas durante el desarrollo del Hito 1, con su justificación.
+Las decisiones más relevantes de cada hito, con su motivo. Las del modelo de datos están en
+[Modelo de datos y migraciones](Modelo-de-Datos-y-Migraciones).
 
-| Decisión | Justificación |
+## Hito 3
+
+| Decisión | Motivo |
 |---|---|
-| **Persistencia en memoria para este hito** | Prioriza definir bien servicios y contratos antes de comprometerse a un modelo de datos. Migración a base de datos real (PostgreSQL + TypeORM/Prisma) planificada para el Hito 2. |
-| **Motor de recomendaciones basado en reglas** | `score = 0.6 × coincidencia de género favorito + 0.4 × coincidencia de historial de compras`, con campo `motivo` en la respuesta para hacer el resultado explicable. |
-| **Integración con Open Library vía `fetch` nativo** | Es una API pública y gratuita que no requiere API key, por lo que no se agregaron dependencias adicionales. |
-| **`ValidationPipe` global estricto** | `whitelist` + `forbidNonWhitelisted`: la API rechaza automáticamente cualquier campo no declarado en el DTO correspondiente. |
-| **Esfuerzo diferencial como módulos independientes** | Recomendaciones y Club de Lectura se aislaron como módulos propios para poder profundizarlos con mayor detalle en los siguientes hitos. |
-| **Flujo de ramas main/develop/feature con Conventional Commits** | Facilita el desarrollo colaborativo del equipo, con reglas claras de Pull Request (mínimo 1 revisión, build y tests pasando antes de solicitar revisión). |
+| **Migraciones de TypeORM que se aplican al arrancar** | Desplegar una versión nueva deja la base al día sin entrar al servidor; cada cambio de estructura queda versionado con el código |
+| **Las migraciones de los hitos anteriores son idempotentes** | Se aplicaron sin perder datos sobre la base del servidor, que se había creado con scripts SQL |
+| **Imagen versionada en Docker Hub; el servidor no compila** | Desplegar o volver atrás es cambiar `API_VERSION`; lo que corre en el servidor es exactamente lo que se probó |
+| **El tag de Git, `package.json` y la imagen comparten número** | GitHub Actions se niega a publicar si no coinciden |
+| **Cookies HttpOnly para la Web, Bearer para Mobile** | El navegador no expone el token al JavaScript; Mobile no tiene cookies de navegador. El guard acepta ambos |
+| **Control de origen con sesión por cookie** | Evita que otro sitio aproveche la cookie del usuario para modificar datos (CSRF) |
+| **Cerrar sesión con un contador por usuario** | Invalida todos los refresh sin guardar cada token |
+| **Pipes que consultan la base** (`LibroExistePipe`, `LibreroExistePipe`) | El 404 se resuelve antes del service y el controller recibe la entidad ya cargada |
+| **Imágenes validadas por contenido y guardadas con nombre aleatorio** | Un archivo renombrado no pasa como imagen y no se puede adivinar ni pisar otro archivo |
+| **Imágenes en disco con un volumen Docker** | Simple y suficiente para el alcance; los metadatos en la base permiten migrar a un almacenamiento externo sin cambiar el contrato |
+| **Correos dummy detrás de `MailService`** | Los flujos de verificación y recuperación funcionan en la demo; un proveedor real reemplaza un solo método |
 
-## Detalle: motor de recomendaciones
+## Hito 2
 
-```
-score = 0.6 × coincide_genero_favorito + 0.4 × coincide_historial_compras
-```
+| Decisión | Motivo |
+|---|---|
+| **Foco en los flujos core del e-commerce** | Explorar, comprar y seguir un pedido debían funcionar de verdad antes de profundizar lo diferencial |
+| **Pago, envío y seguimiento dummy con reglas predecibles** | Permiten demostrar casos de éxito y error sin depender de proveedores externos |
+| **Checkout en una transacción con bloqueo de filas** | Validar y descontar stock, aplicar el cupón y vaciar el carrito ocurre todo o nada, aun con compras simultáneas |
+| **Guard de autenticación global con `@Public()`** | Olvidar proteger un endpoint nuevo no lo deja abierto |
+| **Errores con código estable y `x-request-id`** | Web y Mobile deciden qué mostrar por el código; cualquier error se rastrea en los logs |
 
-- Se excluyen del resultado los libros que el usuario ya compró.
-- El resultado se ordena de mayor a menor score.
-- El campo `motivo` se genera dinámicamente según qué señal(es) coincidieron, por ejemplo:
-  - *"Coincide con tu género favorito 'Ciencia ficción'"*
-  - *"Similar a compras anteriores en 'Ciencia ficción'"*
-  - *"Coincide con tu género favorito 'Ciencia ficción' y tu historial de compras"*
+## Hito 1
 
-## Detalle: por qué persistencia en memoria
-
-En este hito se optó deliberadamente por **no** conectar una base de datos real, para poder enfocar el esfuerzo en:
-
-1. Identificar correctamente los 17 sistemas del negocio (ver [Sistemas Identificados](Sistemas-Identificados)).
-2. Definir los contratos (DTOs) de forma consistente entre Backend, Frontend y Mobile.
-3. Evitar bloquear el avance por configuración de infraestructura de base de datos.
-
-La migración real está planificada explícitamente en el [Roadmap — Hito 2](Roadmap-Hito-2).
-
-## Detalle: autenticación simulada
-
-El endpoint `POST /usuarios/login` hoy devuelve un token con el formato `fake-jwt-for-{usuarioId}`, marcado con un comentario `// TODO` en el código. Esta decisión permitió avanzar con los demás módulos sin bloquearse en la implementación de JWT real, que queda planificada para el Hito 2.
-
----
-Ver también: [Sistemas Identificados](Sistemas-Identificados) · [Roadmap — Hito 2](Roadmap-Hito-2)
+| Decisión | Motivo |
+|---|---|
+| **Motor de recomendaciones basado en reglas** | `score = 0.6 × género favorito + 0.4 × historial de compras`, con un `motivo` que explica cada recomendación |
+| **Open Library con `fetch` nativo** | API pública sin clave; no agrega dependencias |
+| **`ValidationPipe` global estricto** | `whitelist` + `forbidNonWhitelisted`: se rechaza cualquier campo no declarado en el DTO |
+| **Ramas `main`/`develop`/`feature` y Conventional Commits** | Revisión obligatoria antes de integrar y un historial legible |

@@ -148,6 +148,11 @@ export class UsuariosService {
     return this.repo.save(usuario);
   }
 
+  /** Invalida los refresh tokens del usuario (cerrar sesión). */
+  async incrementarVersionSesion(id: string): Promise<void> {
+    await this.repo.increment({ id }, 'versionSesion', 1);
+  }
+
   async eliminar(id: string): Promise<void> {
     const usuario = await this.obtener(id);
     await this.repo.remove(usuario);

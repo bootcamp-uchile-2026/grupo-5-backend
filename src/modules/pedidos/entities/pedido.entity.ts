@@ -76,6 +76,15 @@ export class Pedido {
   @Column({ name: 'dir_telefono', type: 'varchar', nullable: true })
   dirTelefono: string | null;
 
+  @Column({ name: 'dir_rut', type: 'varchar', nullable: true })
+  dirRut: string | null;
+
+  @Column({ name: 'dir_ciudad', type: 'varchar', nullable: true })
+  dirCiudad: string | null;
+
+  @Column({ name: 'dir_codigo_postal', type: 'varchar', nullable: true })
+  dirCodigoPostal: string | null;
+
   @Column({ name: 'codigo_seguimiento', type: 'varchar', nullable: true })
   codigoSeguimiento: string | null;
 

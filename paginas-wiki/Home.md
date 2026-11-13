@@ -1,52 +1,48 @@
 # LeeConNos — Wiki del Backend
 
-Bienvenido a la documentación técnica del **Backend de LeeConNos**, la tienda online de una librería independiente que traslada al mundo digital la experiencia de recomendación personalizada de sus libreros.
+API REST de **LeeConNos**, la tienda online de una librería independiente que traslada al mundo digital la
+recomendación personalizada de sus libreros.
 
-> 📌 Esta wiki corresponde a la entrega del **Hito 1** del Bootcamp DCC — Universidad de Chile (Equipo 5 · Legión Atenea).
+> Estado al cierre del **Hito 3** · versión **0.4.0** · Equipo 5 — Legión Atenea · Bootcamp DCC UChile.
 
-## 🚀 Empezar aquí
+| Recurso | Enlace |
+|---|---|
+| Swagger (contratos vigentes) | http://3.131.220.134:3000/docs |
+| URL base de la API | http://3.131.220.134:3000 |
+| Repositorio | https://github.com/bootcamp-uchile-2026/grupo-5-backend |
+| Imagen Docker | `usuario/leeconnos-backend:0.4.0` en Docker Hub |
+
+## Empezar aquí
 
 | Si quieres... | Ve a |
 |---|---|
-| Levantar el proyecto en tu máquina | [Cómo Ejecutar el Proyecto](Como-Ejecutar-el-Proyecto) |
-| Entender cómo está armada la API | [Arquitectura General](Arquitectura-General) |
-| Ver cómo se organiza el código | [Organización del Proyecto](Organizacion-del-Proyecto) |
-| Ver qué endpoints existen | [Servicios Identificados](Servicios-Identificados) |
-| Ver los contratos de datos (DTOs) | [DTOs de Entrada y Salida](DTOs-de-Entrada-y-Salida) |
-| Probar la API sin leer código | [Documentación OpenAPI / Swagger](Documentacion-OpenAPI-Swagger) |
-| Entender el "por qué" de cada sistema | [Sistemas Identificados](Sistemas-Identificados) |
-| Contribuir con código (ramas, commits, PRs) | [Flujo de Ramas y Contribución](Flujo-de-Ramas-y-Contribucion) |
-| Ver las decisiones técnicas y sus razones | [Decisiones Técnicas](Decisiones-Tecnicas) |
-| Saber qué viene en el próximo hito | [Roadmap — Hito 2](Roadmap-Hito-2) |
+| Levantar el proyecto en tu máquina | [Cómo ejecutar el proyecto](Como-Ejecutar-el-Proyecto) |
+| Entender cómo está armada la API | [Arquitectura general](Arquitectura-General) |
+| Ver qué servicios hay y su estado | [Servicios](Servicios) |
+| Integrarte desde Web o Mobile (sesión, permisos) | [Autenticación y autorización](Autenticacion-y-Autorizacion) |
+| Subir portadas o imágenes de la galería | [Imágenes](Imagenes) |
+| Ver las tablas, el diagrama y las migraciones | [Modelo de datos y migraciones](Modelo-de-Datos-y-Migraciones) |
+| Publicar una versión o actualizar el servidor | [Versionado y despliegue](Versionado-y-Despliegue) |
+| Contribuir (ramas, commits, Pull Requests) | [Flujo de ramas y contribución](Flujo-de-Ramas-y-Contribucion) |
+| Entender el porqué de las decisiones | [Decisiones técnicas](Decisiones-Tecnicas) |
+| Saber qué falta para la entrega final | [Pendientes](Pendientes) |
 
-## 📊 Estado actual en números
+## Estado en números
 
 | Métrica | Valor |
 |---|---|
-| Framework | NestJS 11 |
-| Módulos de dominio | 7 |
-| Endpoints documentados | 40+ |
-| Sistemas identificados en total | 17 (7 construidos + 10 en backlog) |
-| Tests e2e | 2/2 aprobados |
-| Documentación | Swagger/OpenAPI en `/docs` |
+| Versión | 0.4.0 (`package.json`, tag `v0.4.0`, imagen `0.4.0`) |
+| Módulos de dominio | 19 |
+| Operaciones en Swagger | 116 |
+| Tablas | 24, creadas por 6 migraciones de TypeORM |
+| Pruebas e2e | 59, contra PostgreSQL real, también en GitHub Actions |
 
-## 🧩 Los 7 módulos de dominio
+## Qué es funcional y qué es dummy
 
-- **Usuarios** — registro, login y perfil de clientes y libreros
-- **Libros** — catálogo, búsqueda e integración con Open Library
-- **Libreros** — perfiles editoriales y secciones curadas
-- **Recomendaciones** ★ — motor de recomendaciones (esfuerzo diferencial)
-- **Club de Lectura** ★ — hilos de discusión y progreso compartido (esfuerzo diferencial)
-- **Reseñas** — opiniones de clientes por libro y por usuario
-- **Listas de Deseos** — listas personales, incluyendo modo "para regalo"
+| Estado | Módulos |
+|---|---|
+| **Funcional sobre PostgreSQL** | auth (JWT, cookies HttpOnly, refresh, logout, verificación de correo, recuperación de contraseña, Google y Facebook), usuarios, catálogo con filtros, imágenes, carrito, direcciones guardadas, cupones, pedidos (con cuenta o invitado), reseñas, libreros y preguntas al librero, recomendaciones, listas de deseos, club de lectura, newsletter |
+| **Dummy con reglas predecibles** | costo de envío, pago, seguimiento y envío de correos |
 
-★ = eje de esfuerzo diferencial marcado explícitamente en la especificación del proyecto.
-
-## 🔗 Enlaces útiles
-
-- Repositorio: `github.com/bootcamp-uchile-2026/grupo-5-backend`
-- Documentación interactiva: `http://localhost:3000/docs` (al levantar el proyecto localmente)
-- Tag de la entrega del Hito 1: `hito-1`
-
----
-*Última actualización: Hito 1 — ver [Roadmap — Hito 2](Roadmap-Hito-2) para el trabajo planificado.*
+Las reglas de los dummy (qué tarjeta aprueba, qué comuna no tiene cobertura, etc.) están en
+[Servicios](Servicios).

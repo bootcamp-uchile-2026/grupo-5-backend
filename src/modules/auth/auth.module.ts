@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { AuthController, UsuariosAuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { SesionCookiesService } from './sesion-cookies.service';
 import { CuentaService } from './cuenta.service';
 import { TokenUsuario } from './entities/token-usuario.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -30,6 +31,7 @@ import { SocialAuthService } from './social-auth.service';
     AuthService,
     CuentaService,
     SocialAuthService,
+    SesionCookiesService,
     // El orden importa: primero se autentica, después se revisa el rol.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

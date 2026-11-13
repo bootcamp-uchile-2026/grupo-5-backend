@@ -1,21 +1,20 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
+import { DataSource } from 'typeorm';
+import { configurarApp } from '../src/app.setup';
 
 /**
  * Recorre el flujo de compra completo contra una base PostgreSQL real con los
- * datos de db/02-seed.sql y db/04-hito3-seed.sql (DATABASE_URL en .env). Cada
+ * datos de prueba que cargan las migraciones (DATABASE_URL en .env). Cada
  * corrida registra usuarios nuevos, así que se puede ejecutar varias veces; el
  * stock que consume se repone al final (POST /admin/reiniciar-stock).
  */
 
-// Sin proveedor de correo real, los tokens de los correos se leen de la respuesta.
-process.env.EXPONER_TOKENS_DEV = 'true';
-// Acceso social sin configurar: se prueba el 503.
-process.env.GOOGLE_CLIENT_ID = '';
-process.env.FACEBOOK_APP_ID = '';
+// Variables de entorno de las pruebas: test/setup-env.ts.
+const ORIGEN_WEB = 'http://localhost:5173';
+
 describe('LeeConNos API (e2e)', () => {
   const FUNDACION = '00000000-0000-4000-8000-000000000001';
   const HOBBIT_SIN_STOCK = '00000000-0000-4000-8000-000000000011';
@@ -33,7 +32,7 @@ describe('LeeConNos API (e2e)', () => {
     cvv: '123',
   };
 
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let http: ReturnType<typeof request>;
   let token: string;
   let pedidoId: string;
@@ -52,15 +51,8 @@ describe('LeeConNos API (e2e)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
-    app = moduleRef.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
-    app.useGlobalFilters(new AllExceptionsFilter());
+    app = moduleRef.createNestApplication<NestExpressApplication>();
+    configurarApp(app);
     await app.init();
     http = request(app.getHttpServer());
   });
@@ -933,6 +925,429 @@ describe('LeeConNos API (e2e)', () => {
         .send({ paginaActual: 50, porcentaje: 10 })
         .expect(200);
       expect(progreso.body.porcentaje).toBe(10);
+    });
+  });
+
+  describe('Cierre Hito 3: migraciones', () => {
+    const DUNE = '00000000-0000-4000-8000-000000000002';
+
+    it('la base se prepara solo con migraciones de TypeORM', async () => {
+      const filas: { name: string }[] = await app
+        .get(DataSource)
+        .query('SELECT name FROM migraciones_typeorm ORDER BY id');
+      expect(filas.map((f) => f.name)).toEqual([
+        'EsquemaInicial1788220800000',
+        'DatosPruebaIniciales1788220800001',
+        'EsquemaHito31792022400000',
+        'DatosPruebaHito31792022400001',
+        'CierreHito31794355200000',
+        'DatosPruebaCierreHito31794355200001',
+      ]);
+      expect(await app.get(DataSource).showMigrations()).toBe(false);
+    });
+
+    it('los datos de prueba traen subgénero, galería y video', async () => {
+      const sinSubgenero = await http.get('/libros').query({ limit: 50 });
+      expect(
+        sinSubgenero.body.items.every(
+          (l: { subgenero: string }) => l.subgenero,
+        ),
+      ).toBe(true);
+      const dune = (await http.get(`/libros/${DUNE}`)).body;
+      expect(dune.videoUrl).toMatch(/^https:\/\/www\.youtube\.com\//);
+      const fundacion = (await http.get(`/libros/${FUNDACION}`)).body;
+      expect(fundacion.galeria.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Cierre Hito 3: sesión con cookies HttpOnly', () => {
+    const correo = `cookie-${Date.now()}@leeconnos.cl`;
+    const cookieDe = (res: request.Response, nombre: string) =>
+      ([] as string[])
+        .concat(res.headers['set-cookie'] ?? [])
+        .find((c) => c.startsWith(`${nombre}=`));
+
+    it('el login deja accessToken y refreshToken en cookies HttpOnly', async () => {
+      await http
+        .post('/auth/registro')
+        .send({
+          nombre: 'Cookie',
+          apellido: 'E2E',
+          email: correo,
+          password: 'clave-segura-1',
+        })
+        .expect(201);
+      const res = await http
+        .post('/auth/login')
+        .send({ email: correo, password: 'clave-segura-1' })
+        .expect(200);
+      const acceso = cookieDe(res, 'lcn_access');
+      const refresh = cookieDe(res, 'lcn_refresh');
+      expect(acceso).toMatch(/HttpOnly/);
+      expect(acceso).toMatch(/Path=\//);
+      expect(refresh).toMatch(/HttpOnly/);
+      expect(refresh).toMatch(/Path=\/auth/);
+    });
+
+    it('con la cookie basta para usar la API, renovar y cerrar sesión', async () => {
+      const agente = request.agent(app.getHttpServer());
+      await agente
+        .post('/auth/login')
+        .send({ email: correo, password: 'clave-segura-1' })
+        .expect(200);
+      expect((await agente.get('/auth/me').expect(200)).body.email).toBe(
+        correo,
+      );
+      // Modificar datos con cookie exige venir de un origen de CORS_ORIGIN (CSRF).
+      const ajeno = await agente
+        .post('/carrito/items')
+        .set('Origin', 'https://sitio-malicioso.example')
+        .send({ libroId: FUNDACION });
+      expect(ajeno.status).toBe(403);
+      expect(ajeno.body.error).toBe('ORIGEN_NO_PERMITIDO');
+      await agente
+        .post('/carrito/items')
+        .set('Origin', ORIGEN_WEB)
+        .send({ libroId: FUNDACION })
+        .expect(200);
+      await agente.delete('/carrito').set('Origin', ORIGEN_WEB).expect(204);
+
+      // Renovar sin body: el refreshToken viaja en la cookie.
+      const renovado = await agente.post('/auth/refresh').expect(200);
+      const refreshAnterior = renovado.body.refreshToken as string;
+
+      const salida = await agente.post('/auth/logout').expect(204);
+      expect(cookieDe(salida, 'lcn_access')).toMatch(
+        /Expires=Thu, 01 Jan 1970/,
+      );
+      await agente.get('/auth/me').expect(401);
+
+      // Cerrar sesión invalida los refresh emitidos antes (también en Mobile).
+      const viejo = await http
+        .post('/auth/refresh')
+        .send({ refreshToken: refreshAnterior })
+        .expect(401);
+      expect(viejo.body.error).toBe('TOKEN_INVALIDO');
+    });
+
+    it('sin refreshToken en body ni cookie responde 401 TOKEN_REQUERIDO', async () => {
+      const res = await http.post('/auth/refresh').expect(401);
+      expect(res.body.error).toBe('TOKEN_REQUERIDO');
+    });
+  });
+
+  describe('Cierre Hito 3: imágenes', () => {
+    // Un PNG de 1x1 píxel.
+    const PNG = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    let librero: string;
+    let portadaOriginal: string;
+
+    beforeAll(async () => {
+      librero = await login('librero@leeconnos.cl');
+      portadaOriginal = (await http.get(`/libros/${FUNDACION}`)).body
+        .portadaUrl;
+    });
+
+    it('sube la portada de un libro y la sirve como archivo estático', async () => {
+      const res = await http
+        .post(`/libros/${FUNDACION}/portada`)
+        .set({ Authorization: `Bearer ${librero}` })
+        .attach('imagen', PNG, {
+          filename: 'portada.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+      expect(res.body).toMatchObject({
+        mime: 'image/png',
+        uso: 'PORTADA',
+        libroId: FUNDACION,
+      });
+      expect(res.body.url).toMatch(/\/uploads\/[0-9a-f-]{36}\.png$/);
+
+      const ruta = new URL(res.body.url).pathname;
+      const archivo = await http.get(ruta).expect(200);
+      expect(archivo.headers['content-type']).toBe('image/png');
+      expect((await http.get(`/libros/${FUNDACION}`)).body.portadaUrl).toBe(
+        res.body.url,
+      );
+
+      // Al eliminar la imagen se quita del libro y deja de servirse.
+      await http
+        .delete(`/imagenes/${res.body.id}`)
+        .set({ Authorization: `Bearer ${librero}` })
+        .expect(204);
+      await http.get(ruta).expect(404);
+      expect(
+        (await http.get(`/libros/${FUNDACION}`)).body.portadaUrl,
+      ).toBeNull();
+      await http
+        .patch(`/libros/${FUNDACION}`)
+        .set({ Authorization: `Bearer ${librero}` })
+        .send({ portadaUrl: portadaOriginal })
+        .expect(200);
+    });
+
+    it('agrega imágenes a la galería', async () => {
+      const res = await http
+        .post(`/libros/${HOBBIT_SIN_STOCK}/galeria`)
+        .set({ Authorization: `Bearer ${librero}` })
+        .attach('imagen', PNG, {
+          filename: 'galeria.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+      const libro = (await http.get(`/libros/${HOBBIT_SIN_STOCK}`)).body;
+      expect(libro.galeria).toContain(res.body.url);
+      const imagenes = await http
+        .get(`/libros/${HOBBIT_SIN_STOCK}/imagenes`)
+        .expect(200);
+      expect(imagenes.body.map((i: { id: string }) => i.id)).toContain(
+        res.body.id,
+      );
+      await http
+        .delete(`/imagenes/${res.body.id}`)
+        .set({ Authorization: `Bearer ${librero}` })
+        .expect(204);
+      expect(
+        (await http.get(`/libros/${HOBBIT_SIN_STOCK}`)).body.galeria,
+      ).not.toContain(res.body.url);
+    });
+
+    it('valida el archivo, el rol y que el libro exista', async () => {
+      const comoLibrero = { Authorization: `Bearer ${librero}` };
+      const sinArchivo = await http
+        .post(`/libros/${FUNDACION}/portada`)
+        .set(comoLibrero)
+        .expect(400);
+      expect(sinArchivo.body.error).toBe('IMAGEN_REQUERIDA');
+
+      // Dice ser PNG, pero su contenido no lo es.
+      const falso = await http
+        .post('/imagenes')
+        .set(comoLibrero)
+        .attach('imagen', Buffer.from('no soy una imagen'), {
+          filename: 'falso.png',
+          contentType: 'image/png',
+        })
+        .expect(415);
+      expect(falso.body.error).toBe('TIPO_ARCHIVO_NO_PERMITIDO');
+
+      await http
+        .post(`/libros/${FUNDACION}/portada`)
+        .set(auth())
+        .attach('imagen', PNG, { filename: 'p.png', contentType: 'image/png' })
+        .expect(403);
+
+      // LibroExistePipe: consulta la base antes de llegar al service.
+      const noExiste = await http
+        .post('/libros/00000000-0000-4000-8000-999999999999/portada')
+        .set(comoLibrero)
+        .attach('imagen', PNG, { filename: 'p.png', contentType: 'image/png' })
+        .expect(404);
+      expect(noExiste.body.error).toBe('LIBRO_NO_ENCONTRADO');
+      await http.get('/libros/no-es-uuid/imagenes').expect(400);
+    });
+  });
+
+  describe('Cierre Hito 3: direcciones guardadas y despacho', () => {
+    const casa = {
+      ...direccion,
+      alias: 'Casa',
+      rut: '12.345.678-5',
+      ciudad: 'Santiago',
+      codigoPostal: '7750000',
+    };
+    let casaId: string;
+    let oficinaId: string;
+
+    it('guarda direcciones; la primera queda como predeterminada', async () => {
+      const primera = await http
+        .post('/direcciones')
+        .set(auth())
+        .send(casa)
+        .expect(201);
+      expect(primera.body).toMatchObject({
+        predeterminada: true,
+        rut: '12345678-5',
+      });
+      casaId = primera.body.id;
+
+      const segunda = await http
+        .post('/direcciones')
+        .set(auth())
+        .send({ ...direccion, alias: 'Oficina', predeterminada: true })
+        .expect(201);
+      oficinaId = segunda.body.id;
+
+      const lista = (await http.get('/direcciones').set(auth()).expect(200))
+        .body;
+      expect(lista.map((d: { alias: string }) => d.alias)).toEqual([
+        'Oficina',
+        'Casa',
+      ]);
+      expect(lista[1].predeterminada).toBe(false);
+    });
+
+    it('valida el RUT y el código postal', async () => {
+      const res = await http
+        .post('/direcciones')
+        .set(auth())
+        .send({ ...casa, rut: '12.345.678-9', codigoPostal: '123' })
+        .expect(400);
+      expect(res.body.detalles).toHaveLength(2);
+    });
+
+    it('el checkout usa una dirección guardada y puede guardar la nueva', async () => {
+      await http
+        .post('/carrito/items')
+        .set(auth())
+        .send({ libroId: FUNDACION })
+        .expect(200);
+      const ambas = await http
+        .post('/pedidos')
+        .set(auth())
+        .send({ metodoEnvio: 'DESPACHO', direccion, direccionId: casaId })
+        .expect(400);
+      expect(ambas.body.error).toBe('DIRECCION_AMBIGUA');
+
+      const pedido = await http
+        .post('/pedidos')
+        .set(auth())
+        .send({ metodoEnvio: 'DESPACHO', direccionId: casaId })
+        .expect(201);
+      expect(pedido.body.direccion).toMatchObject({
+        calle: casa.calle,
+        rut: '12345678-5',
+        ciudad: 'Santiago',
+        codigoPostal: '7750000',
+      });
+      await http
+        .post(`/pedidos/${pedido.body.id}/cancelar`)
+        .set(auth())
+        .expect(200);
+
+      await http
+        .post('/carrito/items')
+        .set(auth())
+        .send({ libroId: FUNDACION })
+        .expect(200);
+      const nueva = { ...direccion, calle: 'Los Leones 1200' };
+      const conGuardado = await http
+        .post('/pedidos')
+        .set(auth())
+        .send({
+          metodoEnvio: 'DESPACHO',
+          direccion: nueva,
+          guardarDireccion: true,
+        })
+        .expect(201);
+      await http
+        .post(`/pedidos/${conGuardado.body.id}/cancelar`)
+        .set(auth())
+        .expect(200);
+      const lista = (await http.get('/direcciones').set(auth())).body;
+      expect(lista.map((d: { calle: string }) => d.calle)).toContain(
+        'Los Leones 1200',
+      );
+    });
+
+    it('las direcciones son privadas y al borrar la predeterminada pasa a otra', async () => {
+      const otro = await login('cliente@leeconnos.cl');
+      await http
+        .patch(`/direcciones/${casaId}`)
+        .set({ Authorization: `Bearer ${otro}` })
+        .send({ alias: 'Mía' })
+        .expect(404);
+      await http.delete(`/direcciones/${oficinaId}`).set(auth()).expect(204);
+      const lista = (await http.get('/direcciones').set(auth())).body;
+      expect(lista[0]).toMatchObject({ id: casaId, predeterminada: true });
+    });
+  });
+
+  describe('Cierre Hito 3: preguntas al librero', () => {
+    it('cualquiera pregunta; solo el librero dueño las ve y responde', async () => {
+      const enviada = await http
+        .post('/libreros/lucia-librera/preguntas')
+        .send({
+          nombre: 'Lector E2E',
+          email: 'lector@correo.cl',
+          pregunta: 'Me gustó Rayuela, ¿qué leo después?',
+        })
+        .expect(201);
+      expect(enviada.body.mensaje).toMatch(/lector@correo.cl/);
+
+      await http
+        .get('/libreros/lucia-librera/preguntas')
+        .set(auth())
+        .expect(403);
+      const lucia = {
+        Authorization: `Bearer ${await login('librero@leeconnos.cl')}`,
+      };
+      const lista = (
+        await http
+          .get('/libreros/lucia-librera/preguntas')
+          .set(lucia)
+          .expect(200)
+      ).body;
+      expect(lista.map((p: { id: string }) => p.id)).toContain(enviada.body.id);
+
+      const respuesta = await http
+        .post(`/libreros/lucia-librera/preguntas/${enviada.body.id}/respuesta`)
+        .set(lucia)
+        .send({ respuesta: 'Prueba con Los detectives salvajes.' })
+        .expect(200);
+      expect(respuesta.body.respondidaEn).not.toBeNull();
+
+      const noExiste = await http
+        .post('/libreros/no-existe/preguntas')
+        .send({
+          nombre: 'X Y',
+          email: 'x@correo.cl',
+          pregunta: 'Una pregunta cualquiera',
+        })
+        .expect(404);
+      expect(noExiste.body.error).toBe('LIBRERO_NO_ENCONTRADO');
+    });
+  });
+
+  describe('Cierre Hito 3: filtros pedidos por Frontend', () => {
+    it('acepta varias editoriales y varios subgéneros', async () => {
+      const res = await http
+        .get('/libros')
+        .query({ subgeneros: 'Distopía,Ciberpunk', limit: 50 })
+        .expect(200);
+      expect(res.body.total).toBeGreaterThanOrEqual(5);
+      expect(
+        res.body.items.every((l: { subgenero: string }) =>
+          ['Distopía', 'Ciberpunk'].includes(l.subgenero),
+        ),
+      ).toBe(true);
+      const editoriales = await http
+        .get('/libros')
+        .query({ editoriales: ['Anagrama', 'Ace'], limit: 50 })
+        .expect(200);
+      expect(editoriales.body.total).toBeGreaterThanOrEqual(3);
+    });
+
+    it('GET /libros/filtros respeta q y genero', async () => {
+      const terror = (
+        await http
+          .get('/libros/filtros')
+          .query({ genero: 'Terror' })
+          .expect(200)
+      ).body;
+      const subgeneros = terror.subgeneros.map(
+        (s: { valor: string }) => s.valor,
+      );
+      expect(subgeneros).toContain('Terror gótico');
+      expect(subgeneros).not.toContain('Space opera');
+      const asimov = (
+        await http.get('/libros/filtros').query({ q: 'asimov' }).expect(200)
+      ).body;
+      expect(asimov.autores).toEqual([{ valor: 'Isaac Asimov', cantidad: 1 }]);
     });
   });
 

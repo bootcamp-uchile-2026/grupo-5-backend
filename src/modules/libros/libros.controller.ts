@@ -22,7 +22,7 @@ import { UuidPipe } from '../../common/pipes/uuid.pipe';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Rol } from '../usuarios/entities/usuario.entity';
-import { BuscarLibrosDto } from './dto/buscar-libros.dto';
+import { BuscarLibrosDto, FiltrosQueryDto } from './dto/buscar-libros.dto';
 import { CreateLibroDto } from './dto/create-libro.dto';
 import { ImportarIsbnDto } from './dto/importar-isbn.dto';
 import { LimiteQueryDto } from '../../common/dto/limite-query.dto';
@@ -82,10 +82,14 @@ export class LibrosController {
   @ApiOperation({
     summary:
       'Valores disponibles para el panel de filtros (editoriales, subgéneros, autores, etiquetas, precios)',
+    description:
+      'Sin parámetros cuenta todo el catálogo. Con q y/o genero, solo los libros que coinciden, ' +
+      'para que el panel muestre únicamente opciones con resultados.',
   })
   @ApiOkResponse({ type: FiltrosDisponiblesDto })
-  filtros(): Promise<FiltrosDisponiblesDto> {
-    return this.libros.filtros();
+  @ApiErrores(400)
+  filtros(@Query() contexto: FiltrosQueryDto): Promise<FiltrosDisponiblesDto> {
+    return this.libros.filtros(contexto);
   }
 
   @Public()

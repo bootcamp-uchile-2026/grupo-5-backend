@@ -1,3 +1,15 @@
+import { MigrationInterface, QueryRunner } from 'typeorm';
+
+/**
+ * Hito 3: cuenta (apellido, novedades, tokens), ficha ampliada del libro, categorías, reseñas, libreros, listas de deseos, club de lectura, cupones, newsletter y compra como invitado.
+ * Contenido original: db/03-hito3-schema.sql. Es idempotente, así que también se
+ * puede aplicar sobre una base creada con los scripts SQL de hitos anteriores.
+ */
+export class EsquemaHito31792022400000 implements MigrationInterface {
+  name = 'EsquemaHito31792022400000';
+
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
 -- LeeConNos · Hito 3 · Cambios de estructura
 -- Completa lo que UX diseñó y la API no tenía: ficha enriquecida, categorías del
 -- menú, reseñas, libreros, listas de deseos y club de lectura persistentes,
@@ -285,3 +297,40 @@ BEGIN
   END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_pedidos_invitado ON pedidos (LOWER(invitado_email)) WHERE invitado_email IS NOT NULL;
+`);
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_dueno_check;
+      ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_total_con_descuento_check;
+      DELETE FROM pedidos WHERE usuario_id IS NULL;
+      ALTER TABLE pedidos
+        DROP COLUMN IF EXISTS descuento,
+        DROP COLUMN IF EXISTS codigo_descuento,
+        DROP COLUMN IF EXISTS invitado_email,
+        DROP COLUMN IF EXISTS invitado_nombre;
+      ALTER TABLE pedidos ALTER COLUMN usuario_id SET NOT NULL;
+      ALTER TABLE pedidos ADD CONSTRAINT pedidos_total_check CHECK (total = subtotal + costo_envio) NOT VALID;
+      DROP TABLE IF EXISTS suscripciones_newsletter, cupones, club_comentarios, club_hilos, club_participantes,
+        clubes_lectura, lista_deseos_libros, listas_deseos, colecciones, recomendaciones_librero,
+        librero_seguidores, libreros, resenas, categorias, tokens_usuario, migraciones_aplicadas CASCADE;
+      ALTER TABLE libros DROP CONSTRAINT IF EXISTS libros_precio_anterior_check;
+      ALTER TABLE libros DROP CONSTRAINT IF EXISTS libros_paginas_check;
+      ALTER TABLE libros
+        DROP COLUMN IF EXISTS precio_anterior, DROP COLUMN IF EXISTS subgenero,
+        DROP COLUMN IF EXISTS encuadernacion, DROP COLUMN IF EXISTS paginas,
+        DROP COLUMN IF EXISTS dimensiones, DROP COLUMN IF EXISTS etiquetas,
+        DROP COLUMN IF EXISTS categorias, DROP COLUMN IF EXISTS video_url,
+        DROP COLUMN IF EXISTS galeria, DROP COLUMN IF EXISTS calificacion,
+        DROP COLUMN IF EXISTS opiniones, DROP COLUMN IF EXISTS ventas;
+      ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_proveedor_auth_check;
+      DELETE FROM usuarios WHERE password_hash IS NULL;
+      ALTER TABLE usuarios ALTER COLUMN password_hash SET NOT NULL;
+      ALTER TABLE usuarios
+        DROP COLUMN IF EXISTS apellido, DROP COLUMN IF EXISTS recibir_novedades,
+        DROP COLUMN IF EXISTS email_verificado, DROP COLUMN IF EXISTS proveedor_auth,
+        DROP COLUMN IF EXISTS proveedor_id;
+    `);
+  }
+}

@@ -1,3 +1,15 @@
+import { MigrationInterface, QueryRunner } from 'typeorm';
+
+/**
+ * Hito 3: categorías del menú, 51 libros más, 10 cuentas, 5 libreros, reseñas, cupones y un club de lectura.
+ * Contenido original: db/04-hito3-seed.sql. Es idempotente, así que también se
+ * puede aplicar sobre una base creada con los scripts SQL de hitos anteriores.
+ */
+export class DatosPruebaHito31792022400001 implements MigrationInterface {
+  name = 'DatosPruebaHito31792022400001';
+
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
 -- LeeConNos · Hito 3 · Datos de prueba
 -- Idempotente: si los registros ya existen no los duplica. Los UPDATE sobre los
 -- libros del Hito 2 solo completan campos vacíos, para no pisar cambios hechos
@@ -560,3 +572,17 @@ INSERT INTO club_comentarios (id, hilo_id, usuario_id, contenido) VALUES
   ('ffffffff-0000-4000-8000-000000000102', 'ffffffff-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000003',
    'Yo me quedo con Melquíades y sus inventos. ¡El hielo!')
 ON CONFLICT DO NOTHING;
+`);
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      DELETE FROM clubes_lectura WHERE id::text LIKE 'eeeeeeee-%';
+      DELETE FROM cupones WHERE codigo NOT IN (SELECT codigo_descuento FROM pedidos WHERE codigo_descuento IS NOT NULL);
+      DELETE FROM libreros WHERE id::text LIKE 'cccccccc-%';
+      DELETE FROM libros WHERE id::text BETWEEN '00000000-0000-4000-8000-000000000025' AND '00000000-0000-4000-8000-000000000075' AND NOT EXISTS (SELECT 1 FROM pedido_items pi WHERE pi.libro_id = libros.id);
+      DELETE FROM usuarios WHERE (id::text LIKE 'aaaaaaaa-%' OR id::text LIKE 'bbbbbbbb-%') AND NOT EXISTS (SELECT 1 FROM pedidos p WHERE p.usuario_id = usuarios.id);
+      DELETE FROM categorias;
+    `);
+  }
+}

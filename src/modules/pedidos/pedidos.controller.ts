@@ -23,7 +23,7 @@ import {
 } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import {
-  CreatePedidoDto,
+  CrearPedidoUsuarioDto,
   CrearPedidoInvitadoDto,
 } from './dto/create-pedido.dto';
 import {
@@ -58,7 +58,7 @@ export class PedidosController {
   )
   async crear(
     @CurrentUser() usuario: UsuarioAutenticado,
-    @Body() dto: CreatePedidoDto,
+    @Body() dto: CrearPedidoUsuarioDto,
   ): Promise<PedidoResponseDto> {
     return PedidoResponseDto.desde(await this.pedidos.crear(usuario, dto));
   }

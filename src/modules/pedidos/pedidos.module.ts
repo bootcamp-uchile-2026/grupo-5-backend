@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CuponesModule } from '../cupones/cupones.module';
+import { DireccionesModule } from '../direcciones/direcciones.module';
 import { EnviosModule } from '../envios/envios.module';
 import { Pedido, PedidoItem } from './entities/pedido.entity';
 import {
@@ -14,6 +15,7 @@ import { PedidosService } from './pedidos.service';
     TypeOrmModule.forFeature([Pedido, PedidoItem]),
     EnviosModule,
     CuponesModule,
+    DireccionesModule,
   ],
   controllers: [PedidosInvitadoController, PedidosController],
   providers: [PedidosService],

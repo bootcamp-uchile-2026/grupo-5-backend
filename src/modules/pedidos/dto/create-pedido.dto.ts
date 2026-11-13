@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDefined,
   IsEmail,
   IsEnum,
@@ -24,6 +25,7 @@ import { CANTIDAD_MAXIMA_POR_LIBRO } from '../../carrito/dto/carrito.dto';
 import { normalizarCodigo } from '../../cupones/dto/cupon.dto';
 import { MetodoEnvio, Region } from '../../envios/dto/envio.dto';
 import { normalizarEmail } from '../../newsletter/dto/newsletter.dto';
+import { IsRut, normalizarRut } from '../../../common/validators/rut.validator';
 
 export class DireccionDto {
   @ApiProperty({
@@ -59,6 +61,33 @@ export class DireccionDto {
     message: 'telefono debe ser un celular chileno, por ejemplo +56912345678',
   })
   telefono: string;
+
+  @ApiPropertyOptional({
+    example: '12.345.678-5',
+    description:
+      'RUT de quien recibe (opcional). Se acepta con o sin puntos y se guarda como 12345678-5',
+  })
+  @IsOptional()
+  @Transform(normalizarRut)
+  @IsRut()
+  rut?: string;
+
+  @ApiPropertyOptional({ example: 'Santiago', description: 'Opcional' })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(60)
+  ciudad?: string;
+
+  @ApiPropertyOptional({
+    example: '7750000',
+    description: 'Código postal chileno de 7 dígitos (opcional)',
+  })
+  @IsOptional()
+  @Matches(/^\d{7}$/, {
+    message: 'codigoPostal debe tener 7 dígitos, por ejemplo 7750000',
+  })
+  codigoPostal?: string;
 }
 
 /** Checkout: convierte el carrito del usuario en un pedido pendiente de pago. */
@@ -72,8 +101,9 @@ export class CreatePedidoDto {
     description: 'Obligatoria si metodoEnvio es DESPACHO',
   })
   @ValidateIf(
-    (o: CreatePedidoDto) =>
-      o.metodoEnvio === MetodoEnvio.DESPACHO || o.direccion !== undefined,
+    (o: CreatePedidoDto & { direccionId?: string }) =>
+      (o.metodoEnvio === MetodoEnvio.DESPACHO && !o.direccionId) ||
+      o.direccion !== undefined,
   )
   @IsDefined({
     message: 'direccion es obligatoria cuando metodoEnvio es DESPACHO',
@@ -92,6 +122,27 @@ export class CreatePedidoDto {
   @Transform(normalizarCodigo)
   @Matches(/^[A-Z0-9_-]{3,30}$/, { message: 'codigoDescuento inválido' })
   codigoDescuento?: string;
+}
+
+/** Checkout con sesión: además puede usar o guardar una dirección de la libreta. */
+export class CrearPedidoUsuarioDto extends CreatePedidoDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Usar una dirección guardada (GET /direcciones) en vez de enviar direccion. No se envían ambos.',
+  })
+  @IsOptional()
+  @IsUUID()
+  direccionId?: string;
+
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'Guardar la direccion enviada en mis direcciones ("Guardar mis datos para próximos envíos")',
+  })
+  @IsOptional()
+  @IsBoolean()
+  guardarDireccion?: boolean;
 }
 
 export class ItemInvitadoDto {

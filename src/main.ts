@@ -1,31 +1,17 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { configurarApp } from './app.setup';
+import { VERSION_APP } from './config/version';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
 
-  // Validación de entrada: rechaza campos no declarados en el DTO y aplica
-  // las conversiones de tipo declaradas (@Type) en query params y body.
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-  app.useGlobalFilters(new AllExceptionsFilter());
-
-  const origenes = config.get<string>('CORS_ORIGIN', '*');
-  app.enableCors({
-    origin: origenes === '*' ? true : origenes.split(',').map((o) => o.trim()),
-    exposedHeaders: ['x-request-id'],
-  });
-  app.enableShutdownHooks();
+  configurarApp(app);
 
   const swagger = new DocumentBuilder()
     .setTitle('LeeConNos API')
@@ -37,7 +23,7 @@ async function bootstrap() {
         '**Dummy con reglas predecibles:** costo de envío, pago, seguimiento y envío de correos (quedan en el log).\n\n' +
         'Todos los errores usan la estructura `ErrorResponseDto` y toda respuesta incluye el header `x-request-id`.',
     )
-    .setVersion('0.3.0')
+    .setVersion(VERSION_APP)
     .addBearerAuth()
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger), {

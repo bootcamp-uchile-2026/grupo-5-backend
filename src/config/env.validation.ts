@@ -22,6 +22,7 @@ export function validateEnv(
     'PORT',
     'ENVIO_GRATIS_DESDE',
     'SEGUIMIENTO_PASO_SEGUNDOS',
+    'IMAGEN_MAX_MB',
   ]) {
     const valor = config[clave];
     if (
@@ -31,6 +32,18 @@ export function validateEnv(
     ) {
       errores.push(`${clave} debe ser numérica`);
     }
+  }
+
+  // Cookies de sesión: SameSite=None solo funciona con Secure (HTTPS).
+  const texto = (clave: string) =>
+    typeof config[clave] === 'string' ? config[clave] : '';
+  const sameSite = texto('COOKIE_SAMESITE').toLowerCase();
+  if (sameSite && !['lax', 'strict', 'none'].includes(sameSite)) {
+    errores.push('COOKIE_SAMESITE debe ser lax, strict o none');
+  }
+  const secure = texto('COOKIE_SECURE') || String(entorno === 'production');
+  if (sameSite === 'none' && secure !== 'true') {
+    errores.push('COOKIE_SAMESITE=none exige COOKIE_SECURE=true (HTTPS)');
   }
 
   if (errores.length) {
