@@ -1,4 +1,12 @@
-# API + PostgreSQL. Uso: cp .env.example .env && docker compose up -d --build
+# API + PostgreSQL en el servidor. La API NO se construye aquí: se descarga la
+# imagen publicada en Docker Hub con la versión indicada en API_VERSION (.env).
+#
+#   Primera vez:      docker compose up -d
+#   Cambiar versión:  editar API_VERSION en .env y
+#                     docker compose pull api && docker compose up -d api
+#
+# Para construir la imagen desde el código (desarrollo), sumar el override:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   db:
     image: postgres:16-alpine
@@ -9,8 +17,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-leeconnos}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Estructura y datos de prueba: se ejecutan solo la primera vez (volumen vacío).
-      - ./db:/docker-entrypoint-initdb.d:ro
     # La base solo se publica en localhost del servidor, nunca hacia internet.
     ports:
       - '127.0.0.1:5432:5432'
@@ -21,8 +27,9 @@ services:
       retries: 10
 
   api:
-    build: .
-    image: leeconnos-backend:hito-2
+    # La estructura y los datos de prueba los crean las migraciones de TypeORM
+    # al arrancar la API (DB_MIGRAR_AL_INICIAR=true), no scripts manuales.
+    image: ${DOCKERHUB_USUARIO:?Falta DOCKERHUB_USUARIO en .env}/leeconnos-backend:${API_VERSION:?Falta API_VERSION en .env}
     restart: unless-stopped
     depends_on:
       db:
@@ -32,12 +39,17 @@ services:
       # Dentro de la red de compose la base se llama "db".
       DATABASE_URL: postgresql://${POSTGRES_USER:-leeconnos}:${POSTGRES_PASSWORD:-leeconnos}@db:5432/${POSTGRES_DB:-leeconnos}
       DB_SSL: 'false'
+      UPLOADS_DIR: /app/uploads
+    volumes:
+      # Las imágenes subidas sobreviven a cada cambio de versión.
+      - uploads:/app/uploads
     ports:
       - '${PORT:-3000}:${PORT:-3000}'
 
-  # HTTPS opcional: docker compose --profile https up -d
+  # HTTPS: docker compose --profile https up -d
   # Caddy obtiene y renueva solo el certificado de Let's Encrypt para DOMINIO
-  # (necesita los puertos 80 y 443 abiertos en el servidor).
+  # (necesita los puertos 80 y 443 abiertos en el servidor). Requerido para que
+  # el navegador acepte las cookies de sesión entre dominios (SameSite=None; Secure).
   https:
     image: caddy:2.8.4-alpine
     profiles: ['https']
@@ -45,8 +57,8 @@ services:
     depends_on:
       - api
     environment:
-      DOMINIO: localhost
-      API_PORT: 3000
+      DOMINIO: ${DOMINIO:-localhost}
+      API_PORT: ${PORT:-3000}
     ports:
       - '80:80'
       - '443:443'
@@ -57,5 +69,6 @@ services:
 
 volumes:
   pgdata:
+  uploads:
   caddy_data:
   caddy_config:

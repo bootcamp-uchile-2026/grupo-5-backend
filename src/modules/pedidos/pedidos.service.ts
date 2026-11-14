@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   CarritoVacioException,
+  DireccionAmbiguaException,
   EstadoPedidoInvalidoException,
   PedidoNoEncontradoException,
   PermisoDenegadoException,
@@ -13,6 +14,7 @@ import {
 import { UsuarioAutenticado } from '../auth/decorators/current-user.decorator';
 import { CarritoItem } from '../carrito/entities/carrito-item.entity';
 import { CuponesService } from '../cupones/cupones.service';
+import { DireccionesService } from '../direcciones/direcciones.service';
 import { MetodoEnvio } from '../envios/dto/envio.dto';
 import { EnviosService } from '../envios/envios.service';
 import { Libro } from '../libros/entities/libro.entity';
@@ -21,6 +23,7 @@ import { Rol } from '../usuarios/entities/usuario.entity';
 import {
   CreatePedidoDto,
   CrearPedidoInvitadoDto,
+  CrearPedidoUsuarioDto,
 } from './dto/create-pedido.dto';
 import { numeroPedido } from './dto/pedido-response.dto';
 import { EstadoPedido, Pedido, PedidoItem } from './entities/pedido.entity';
@@ -53,25 +56,43 @@ export class PedidosService {
     private readonly cupones: CuponesService,
     private readonly jwt: JwtService,
     private readonly mail: MailService,
+    private readonly direcciones: DireccionesService,
   ) {}
 
   /** Checkout de un usuario con cuenta: convierte su carrito en un pedido. */
   async crear(
     usuario: UsuarioAutenticado | string,
-    dto: CreatePedidoDto,
+    dto: CrearPedidoUsuarioDto,
   ): Promise<Pedido> {
     const { id: usuarioId, email } =
       typeof usuario === 'string' ? { id: usuario, email: '' } : usuario;
+    if (dto.direccionId && dto.direccion) throw new DireccionAmbiguaException();
+
     const id = await this.dataSource.transaction(async (tx) => {
       const carrito = await tx.find(CarritoItem, { where: { usuarioId } });
       if (!carrito.length) throw new CarritoVacioException();
-      const pedidoId = await this.registrar(
-        tx,
-        { usuarioId, email },
-        carrito,
-        dto,
-      );
+
+      // "Usar mi dirección guardada": se copia al pedido como cualquier otra.
+      const direccion = dto.direccionId
+        ? DireccionesService.comoDireccionDePedido(
+            await this.direcciones.obtener(usuarioId, dto.direccionId, tx),
+          )
+        : dto.direccion;
+
+      const pedidoId = await this.registrar(tx, { usuarioId, email }, carrito, {
+        ...dto,
+        direccion,
+      });
       await tx.delete(CarritoItem, { usuarioId });
+
+      // "Guardar mis datos para próximos envíos": en la misma transacción, así
+      // que si el pedido falla tampoco queda guardada la dirección.
+      if (dto.guardarDireccion && dto.direccion)
+        await this.direcciones.crear(
+          usuarioId,
+          { ...dto.direccion, alias: 'Mi dirección' },
+          tx,
+        );
       return pedidoId;
     });
     return this.buscar(id);
@@ -243,6 +264,9 @@ export class PedidosService {
         dirComuna: direccion?.comuna ?? null,
         dirRegion: direccion?.region ?? null,
         dirTelefono: direccion?.telefono ?? null,
+        dirRut: direccion?.rut ?? null,
+        dirCiudad: direccion?.ciudad ?? null,
+        dirCodigoPostal: direccion?.codigoPostal ?? null,
         items: items as PedidoItem[],
       }),
     );

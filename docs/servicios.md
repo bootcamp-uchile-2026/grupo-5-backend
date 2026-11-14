@@ -3,12 +3,17 @@
 La fuente oficial y siempre actualizada es Swagger (`/docs`). Este documento resume qué hay, en qué estado
 está cada servicio y qué cambió respecto de los hitos anteriores, para coordinar con Web y Mobile.
 
-> **Novedades del Hito 3:** ver la [sección 6](#6-novedades-del-hito-3) y la guía para el Front en
+> **Novedades del Hito 3:** ver la [sección 6](#6-novedades-del-hito-3), el cierre (cookies, imágenes,
+> direcciones, preguntas al librero) en la [sección 7](#7-cierre-del-hito-3-versión-040) y la guía para el Front en
 > [`hito3-backend.md`](./hito3-backend.md). Reseñas, listas de deseos, libreros y club de lectura ya no
 > están en memoria (la sección 3 queda como referencia histórica).
 
-**Autenticación.** Toda ruta exige `Authorization: Bearer <token>` salvo las marcadas como *Pública*.
-El token se obtiene en `POST /auth/login` o `POST /auth/registro` y dura `JWT_EXPIRES_IN` (2 h por defecto).
+**Autenticación.** Toda ruta exige sesión salvo las marcadas como *Pública*. La sesión se obtiene en
+`POST /auth/login` o `POST /auth/registro` y dura `JWT_EXPIRES_IN` (2 h por defecto). Hay dos formas de enviarla:
+
+- **Web:** cookies HttpOnly que la API deja al iniciar sesión. Las peticiones deben ir con credenciales
+  (`fetch(url, { credentials: 'include' })` o `axios` con `withCredentials: true`).
+- **Mobile y Swagger:** header `Authorization: Bearer <accessToken>`, con el token del body.
 
 ## 1. Funcionales sobre PostgreSQL
 
@@ -308,3 +313,89 @@ Las ventas de cada libro (`ventas`) aumentan cuando se aprueba un pago.
 | `PROVEEDOR_NO_DISPONIBLE` | 502 | Google/Facebook no respondió |
 | `PROVEEDOR_NO_CONFIGURADO` | 503 | Faltan las credenciales del proveedor en el servidor |
 | `TOKEN_PEDIDO_INVALIDO` | 401 | Falta o es inválido `X-Pedido-Token` |
+
+## 7. Cierre del Hito 3 (versión 0.4.0)
+
+### Sesión con cookies HttpOnly
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `POST /auth/login`, `/auth/registro`, `/auth/google`, `/auth/facebook` | Pública | Además del body, dejan las cookies `lcn_access` (ruta `/`) y `lcn_refresh` (ruta `/auth`), ambas HttpOnly |
+| `POST /auth/refresh` | Pública | El `refreshToken` puede venir en el body (Mobile) o en la cookie (Web, sin body). Renueva también las cookies |
+| `POST /auth/logout` | Pública | Borra las cookies e invalida todos los `refreshToken` del usuario. Siempre `204` |
+
+Con sesión por cookie, las peticiones que modifican datos (POST, PATCH, PUT, DELETE) deben venir de un
+origen listado en `CORS_ORIGIN`; si no, responden `403 ORIGEN_NO_PERMITIDO`. El navegador agrega solo el
+header `Origin`. Con Bearer no hay esta restricción.
+
+### Imágenes
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `POST /imagenes` | LIBRERO o ADMIN | Sube una imagen (multipart, campo `imagen`) y devuelve su `url` pública |
+| `POST /libros/:id/portada` | LIBRERO o ADMIN | Sube la imagen y la deja como `portadaUrl` del libro |
+| `POST /libros/:id/galeria` | LIBRERO o ADMIN | Sube la imagen y la agrega a `galeria` |
+| `GET /libros/:id/imagenes` | Pública | Imágenes subidas para el libro |
+| `GET /imagenes/:id` | Pública | Datos de una imagen |
+| `DELETE /imagenes/:id` | LIBRERO o ADMIN | Borra el archivo y lo quita de la portada o la galería |
+| `GET /uploads/<archivo>` | Pública | Servidor de archivos estáticos |
+
+Formatos JPG, PNG y WEBP, hasta `IMAGEN_MAX_MB` (2 MB). El tipo se comprueba por el contenido del archivo,
+no por su extensión. Ejemplo desde la Web:
+
+```ts
+const datos = new FormData();
+datos.append('imagen', archivo); // File de un <input type="file">
+await fetch(`${API}/libros/${id}/portada`, {
+  method: 'POST',
+  body: datos,
+  credentials: 'include',
+});
+```
+
+### Direcciones guardadas
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `GET /direcciones` | Sesión | Mis direcciones, la predeterminada primero |
+| `POST /direcciones` | Sesión | `{ alias, nombreReceptor, calle, comuna, region, telefono, rut?, ciudad?, codigoPostal?, predeterminada? }`. Hasta 10; la primera queda predeterminada |
+| `PATCH /direcciones/:id` | Sesión | Editar |
+| `POST /direcciones/:id/predeterminada` | Sesión | Usarla por defecto |
+| `DELETE /direcciones/:id` | Sesión | Eliminar; si era la predeterminada, pasa a serlo la más antigua |
+
+En `POST /pedidos` (con sesión):
+
+- `direccionId`: usa una dirección guardada en vez de enviar `direccion`. No se envían ambos (`400 DIRECCION_AMBIGUA`).
+- `guardarDireccion: true`: guarda la `direccion` enviada en la libreta.
+- `direccion` acepta además `rut` (con o sin puntos; valida el dígito verificador), `ciudad` y `codigoPostal`
+  (7 dígitos), todos opcionales. También en la compra como invitado.
+
+### Preguntas al librero
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `POST /libreros/:id/preguntas` | Pública (sesión opcional) | `{ nombre, email, pregunta }`. Avisa al librero por correo (dummy) |
+| `GET /libreros/:id/preguntas` | Librero dueño o ADMIN | Preguntas recibidas |
+| `POST /libreros/:id/preguntas/:preguntaId/respuesta` | Librero dueño o ADMIN | `{ respuesta }`. Avisa a quien preguntó |
+
+`:id` acepta el uuid o el slug del librero.
+
+### Catálogo
+
+- `GET /libros` acepta `editoriales` y `subgeneros` con varios valores (separados por coma o repitiendo el parámetro).
+- `GET /libros/filtros` acepta `q` y `genero`: solo cuenta los libros que coinciden.
+- `GET /health` informa la `version` desplegada.
+
+### Códigos de error nuevos
+
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `ORIGEN_NO_PERMITIDO` | 403 | Sesión por cookie desde un origen que no está en `CORS_ORIGIN` |
+| `IMAGEN_REQUERIDA` | 400 | Falta el campo `imagen` del formulario |
+| `TIPO_ARCHIVO_NO_PERMITIDO` | 415 | El archivo no es JPG, PNG ni WEBP |
+| `ARCHIVO_DEMASIADO_GRANDE` | 413 | Supera `IMAGEN_MAX_MB` |
+| `IMAGEN_NO_ENCONTRADA` | 404 | La imagen no existe |
+| `DIRECCION_NO_ENCONTRADA` | 404 | La dirección no existe o es de otro usuario |
+| `LIMITE_DIRECCIONES` | 409 | Ya tiene 10 direcciones guardadas |
+| `DIRECCION_AMBIGUA` | 400 | Se enviaron `direccion` y `direccionId` |
+| `PREGUNTA_NO_ENCONTRADA` | 404 | La pregunta no existe para ese librero |

@@ -75,6 +75,16 @@ export class PermisoDenegadoException extends AppException {
   }
 }
 
+export class OrigenNoPermitidoException extends AppException {
+  constructor(origen: string) {
+    super(
+      'ORIGEN_NO_PERMITIDO',
+      `La sesión por cookie no se acepta desde el origen "${origen || 'desconocido'}"`,
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
 export class EmailYaRegistradoException extends AppException {
   constructor(email: string) {
     super(
@@ -367,6 +377,78 @@ export class TokenPedidoInvalidoException extends AppException {
       'TOKEN_PEDIDO_INVALIDO',
       'Se requiere el header X-Pedido-Token válido entregado al crear el pedido',
       HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
+// ---------- Imágenes ----------
+export class ImagenRequeridaException extends AppException {
+  constructor() {
+    super(
+      'IMAGEN_REQUERIDA',
+      'Falta el archivo: envíalo como multipart/form-data en el campo "imagen"',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+export class TipoImagenNoPermitidoException extends AppException {
+  constructor(tipo: string) {
+    super(
+      'TIPO_ARCHIVO_NO_PERMITIDO',
+      `El archivo debe ser una imagen JPG, PNG o WEBP (se recibió "${tipo}")`,
+      HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+    );
+  }
+}
+
+export class ImagenNoEncontradaException extends AppException {
+  constructor(id: string) {
+    super(
+      'IMAGEN_NO_ENCONTRADA',
+      `No existe una imagen con id "${id}"`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+// ---------- Direcciones ----------
+export class DireccionNoEncontradaException extends AppException {
+  constructor(id: string) {
+    super(
+      'DIRECCION_NO_ENCONTRADA',
+      `No tienes una dirección guardada con id "${id}"`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class LimiteDireccionesException extends AppException {
+  constructor(maximo: number) {
+    super(
+      'LIMITE_DIRECCIONES',
+      `Puedes guardar hasta ${maximo} direcciones; elimina una para agregar otra`,
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class DireccionAmbiguaException extends AppException {
+  constructor() {
+    super(
+      'DIRECCION_AMBIGUA',
+      'Envía direccion o direccionId, no ambos',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+export class PreguntaNoEncontradaException extends AppException {
+  constructor(id: string) {
+    super(
+      'PREGUNTA_NO_ENCONTRADA',
+      `No existe una pregunta con id "${id}" para este librero`,
+      HttpStatus.NOT_FOUND,
     );
   }
 }

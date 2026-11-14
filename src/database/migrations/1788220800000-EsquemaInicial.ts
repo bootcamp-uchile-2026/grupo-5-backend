@@ -1,3 +1,15 @@
+import { MigrationInterface, QueryRunner } from 'typeorm';
+
+/**
+ * Hito 2: usuarios, libros, carrito, pedidos y pagos.
+ * Contenido original: db/01-schema.sql. Es idempotente, así que también se
+ * puede aplicar sobre una base creada con los scripts SQL de hitos anteriores.
+ */
+export class EsquemaInicial1788220800000 implements MigrationInterface {
+  name = 'EsquemaInicial1788220800000';
+
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
 -- LeeConNos · Hito 2 · Estructura inicial de la base de datos (PostgreSQL 13+)
 -- Se ejecuta sola la primera vez que arranca el contenedor de Postgres
 -- (docker-entrypoint-initdb.d) o a mano con: npm run db:setup
@@ -100,3 +112,12 @@ CREATE TABLE IF NOT EXISTS pagos (
 CREATE INDEX IF NOT EXISTS idx_pagos_pedido ON pagos (pedido_id);
 -- Un pedido tiene a lo más un pago aprobado.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_pagos_aprobado_por_pedido ON pagos (pedido_id) WHERE estado = 'APROBADO';
+`);
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      DROP TABLE IF EXISTS pagos, pedido_items, pedidos, carrito_items, libros, usuarios CASCADE;
+    `);
+  }
+}

@@ -9,9 +9,9 @@ comprar, pagar y seguir un pedido. Suma perfiles de libreros con secciones curad
 recomendaciones según géneros e historial de compras, club de lectura, reseñas y listas de
 deseos. El catálogo se enriquece con metadatos de la API gratuita de **Open Library**.
 
-> Entrega correspondiente al **Hito 2** del Bootcamp DCC — Universidad de Chile.
+> Entrega correspondiente al **Hito 3** del Bootcamp DCC — Universidad de Chile. Versión **0.4.0**.
 
-| Estado en el Hito 2 | Módulos | Persistencia |
+| Estado en el Hito 3 | Módulos | Persistencia |
 |---|---|---|
 | **Funcional** | auth (JWT con refresh, verificación de correo, recuperación de contraseña, Google y Facebook), usuarios, catálogo con filtros y categorías del menú, carrito, cupones, pedidos (también como invitado), reseñas, libreros, recomendaciones, listas de deseos, club de lectura, newsletter | PostgreSQL |
 | **Dummy con reglas predecibles** | costo de envío, pago, seguimiento, envío de correos | Reglas fijas |
@@ -94,10 +94,18 @@ Antes de ejecutar el proyecto, asegúrate de tener instalados los siguientes com
    | `GOOGLE_CLIENT_ID` | No | — | Habilita `POST /auth/google`. Sin ella responde `503` |
    | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | No | — | Habilitan `POST /auth/facebook`. Sin ellas responde `503` |
    | `DOMINIO` | Solo HTTPS | `localhost` | Dominio del certificado del perfil `https` (ver [despliegue](./docs/despliegue.md)) |
-   | `CORS_ORIGIN` | No | `*` | Orígenes permitidos, separados por coma. `*` permite cualquiera |
+   | `CORS_ORIGIN` | No | `*` | Orígenes permitidos, separados por coma. `*` permite cualquiera. Con sesión por cookie, solo desde ellos se aceptan cambios de datos |
+   | `DB_MIGRAR_AL_INICIAR` | No | `true` | Aplicar las migraciones pendientes al arrancar |
+   | `COOKIE_SECURE` | No | `true` en producción | Cookies de sesión solo por HTTPS |
+   | `COOKIE_SAMESITE` | No | `lax` | `none` si Web y API están en dominios distintos (exige `COOKIE_SECURE=true`) |
+   | `COOKIE_DOMAIN` | No | — | Dominio padre para compartir la cookie entre subdominios |
+   | `UPLOADS_DIR` | No | `uploads` | Carpeta de las imágenes subidas |
+   | `IMAGEN_MAX_MB` | No | `2` | Tamaño máximo por imagen |
+   | `PUBLIC_URL` | No | host de la petición | URL pública de la API, para armar la URL de las imágenes |
    | `ENVIO_GRATIS_DESDE` | No | `40000` | Subtotal (CLP) desde el que el despacho es gratis |
    | `SEGUIMIENTO_PASO_SEGUNDOS` | No | `60` | Segundos entre cada hito del seguimiento simulado |
    | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Solo Docker | `leeconnos` | Credenciales con que se crea el contenedor de PostgreSQL |
+   | `DOCKERHUB_USUARIO`, `API_VERSION` | Solo Docker | — | Imagen de la API que descarga el servidor: `<usuario>/leeconnos-backend:<versión>` |
 
 3. En caso de ejecutar en ambiente productivo, adicionalmente se debe modificar:
 
@@ -118,25 +126,20 @@ Antes de ejecutar el proyecto, asegúrate de tener instalados los siguientes com
    npm run db:local
    ```
 
-2. En otra terminal, crea las tablas y carga los datos de prueba:
-
-   ```bash
-   npm run db:setup
-   ```
-
-3. Levanta la API con recarga automática al guardar:
+2. En otra terminal, levanta la API con recarga automática al guardar. Al arrancar aplica
+   las migraciones de TypeORM pendientes, que crean las tablas y cargan los datos de prueba:
 
    ```bash
    npm run start:dev
    ```
 
-4. Verifica que responde:
+3. Verifica que responde:
 
    ```bash
    curl http://localhost:3000/health
    ```
 
-   Debe devolver `{"status":"ok","db":"ok",...}`.
+   Debe devolver `{"status":"ok","version":"0.4.0","db":"ok",...}`.
 
 Si ya tienes un PostgreSQL propio, omite el paso 1 y apunta `DATABASE_URL` a esa base.
 
@@ -144,31 +147,39 @@ Otros scripts útiles:
 
 | Script | Qué hace |
 |---|---|
-| `npm run db:reset` | Borra las tablas y las vuelve a crear con los datos de prueba |
+| `npm run migration:show` | Lista las migraciones y cuáles están aplicadas |
+| `npm run migration:run` / `migration:revert` | Aplica las pendientes / revierte la última |
+| `npm run migration:generate -- src/database/migrations/Nombre` | Crea una migración comparando las entidades con la base |
+| `npm run db:reset` | Borra todas las tablas y vuelve a aplicar las migraciones |
 | `npm run db:reset-stock` | Repone el stock de los libros de prueba y cancela los pedidos pendientes de pago |
-| `npm run test:e2e` | 44 pruebas de punta a punta contra la base configurada en `.env` |
+| `npm run test:e2e` | 59 pruebas de punta a punta contra la base configurada en `.env` |
 | `npm run lint` / `npm run format` | ESLint y Prettier |
 
 ## 5. Ejecución - Producción
 
-Para ejecutar el proyecto en modo producción se usa Docker, que levanta la API y
-PostgreSQL y carga la estructura y los datos de prueba la primera vez:
+En producción la API corre desde una imagen versionada publicada en Docker Hub; el
+servidor no compila código. La versión de `package.json`, el tag de Git (`v0.4.0`) y el
+tag de la imagen (`0.4.0`) coinciden:
 
-```bash
-docker compose up -d --build
-```
+1. Crear el tag `v0.4.0` en `main`. GitHub Actions corre las pruebas y publica
+   `usuario/leeconnos-backend:0.4.0` en Docker Hub.
+2. En el servidor, indicar `DOCKERHUB_USUARIO` y `API_VERSION=0.4.0` en el `.env` y levantar:
 
-Comprueba el estado con:
+   ```bash
+   docker compose up -d
+   ```
 
-```bash
-docker compose ps
-```
+3. Para cambiar de versión, editar `API_VERSION` y:
 
-Alternativa sin Docker, con un PostgreSQL ya disponible en `DATABASE_URL`:
+   ```bash
+   docker compose pull api && docker compose up -d api
+   ```
+
+Las migraciones pendientes se aplican al arrancar cada versión. Alternativa sin Docker,
+con un PostgreSQL ya disponible en `DATABASE_URL`:
 
 ```bash
 npm run build
-npm run db:setup
 npm run start:prod
 ```
 
@@ -182,25 +193,32 @@ en `common/`:
 
 ```bash
 src/
-├── main.ts                 # Punto de entrada: Swagger, validación global, filtro de errores, CORS
+├── main.ts                 # Punto de entrada y Swagger
+├── app.setup.ts            # Validación global, errores, cookies, CORS y archivos estáticos
 ├── app.module.ts           # Módulo raíz: configuración y conexión a PostgreSQL
-├── config/                 # Validación de variables de entorno al arrancar
+├── config/                 # Variables de entorno, orígenes permitidos y versión
+├── database/
+│   ├── data-source.ts      # Conexión para la CLI de TypeORM
+│   └── migrations/         # Estructura y datos de prueba, versionados
 ├── common/                 # Componentes transversales
 │   ├── middleware/         # x-request-id, logs de entrada/salida, tiempo de ejecución
 │   ├── context/            # Request id disponible en cualquier capa
 │   ├── exceptions/         # Errores personalizados de negocio
 │   ├── filters/            # Convierte cualquier error en la respuesta HTTP estándar
 │   ├── pipes/              # Validación de parámetros (UuidPipe)
+│   ├── validators/         # Validadores propios (RUT)
 │   └── dto/                # Estructura de error para Swagger
 └── modules/                # Un módulo por funcionalidad del negocio
-    ├── auth/               # JWT y refresh, verificación, recuperación, Google/Facebook
+    ├── auth/               # JWT, cookies HttpOnly, refresh y logout, verificación, Google/Facebook
     ├── usuarios/           # Cuentas de clientes y libreros            → PostgreSQL
     ├── libros/             # Catálogo, filtros, categorías del menú    → PostgreSQL
+    ├── imagenes/           # Subida de portadas y galería              → disco + PostgreSQL
     ├── carrito/            # Carrito del usuario autenticado           → PostgreSQL
+    ├── direcciones/        # Direcciones de despacho guardadas         → PostgreSQL
     ├── cupones/            # Códigos de descuento                      → PostgreSQL
     ├── pedidos/            # Checkout (con cuenta o invitado)          → PostgreSQL
     ├── resenas/            # Reseñas de lectores y libreros            → PostgreSQL
-    ├── libreros/           # Perfiles, recomendaciones y colecciones   → PostgreSQL
+    ├── libreros/           # Perfiles, recomendaciones, preguntas      → PostgreSQL
     ├── recomendaciones/    # Destacadas del Home y personalizadas      → PostgreSQL
     ├── listas-deseos/      # Listas de deseos y "Favoritos"            → PostgreSQL
     ├── club-lectura/       # Clubes, hilos y progreso compartido       → PostgreSQL
@@ -210,12 +228,13 @@ src/
     ├── envios/             # Cotización de envío                       → dummy
     ├── pagos/              # Pasarela de pago                          → dummy
     └── seguimiento/        # Seguimiento del pedido                    → dummy
-db/                         # 01/03 estructura (Hito 2/3) y 02/04 datos de prueba
-scripts/                    # db-setup.js, reset-stock.sql y PostgreSQL local sin Docker
+scripts/                    # Reposición de stock, publicación de la imagen y PostgreSQL local
 test/                       # Pruebas e2e del flujo de compra
 docs/                       # Documentación técnica y backlog
+.github/workflows/          # Publicación de la imagen en Docker Hub al crear un tag
 Dockerfile                  # Imagen de la API
-docker-compose.yml          # API + PostgreSQL (+ Caddy para HTTPS con el perfil https)
+docker-compose.yml          # Servidor: imagen de Docker Hub + PostgreSQL (+ Caddy con el perfil https)
+docker-compose.build.yml    # Override para construir la imagen desde el código
 Caddyfile                   # Proxy HTTPS con certificado automático
 ```
 
@@ -308,12 +327,13 @@ Para dudas o problemas con la API, abre un *issue* en
 
 ### Datos de prueba
 
-`npm run db:setup` (o el primer `docker compose up`) carga 75 libros (con reseñas, cubriendo
+Las migraciones de TypeORM, al arrancar la API por primera vez, cargan 75 libros (con reseñas, cubriendo
 todas las categorías del menú de UX), 5 perfiles de libreros, cupones, un club de lectura y
 cuentas de ejemplo: `cliente@leeconnos.cl`, `librero@leeconnos.cl` y `admin@leeconnos.cl`, los
 libreros de los wireframes (`gregorio@`, `ana@`, `tyler@`, `clara@`) y los lectores que firman
 las reseñas (`lector1@` a `lector6@`).
-Su contraseña de desarrollo está indicada en [`db/02-seed.sql`](./db/02-seed.sql) y es
+Su contraseña de desarrollo está indicada en la migración
+[`DatosPruebaIniciales`](./src/database/migrations/1788220800001-DatosPruebaIniciales.ts) y es
 válida solo para ambientes locales; en un ambiente público debe cambiarse.
 
 Para probar sin esas cuentas basta con registrarse en `POST /auth/registro`.
@@ -352,29 +372,44 @@ Las seis tablas del Hito 2 (`usuarios`, `libros`, `carrito_items`, `pedidos`, `p
 `pagos`) más las del Hito 3: `categorias`, `resenas`, `libreros`, `recomendaciones_librero`,
 `colecciones`, `librero_seguidores`, `listas_deseos`, `lista_deseos_libros`, `clubes_lectura`,
 `club_participantes`, `club_hilos`, `club_comentarios`, `cupones`, `suscripciones_newsletter` y
-`tokens_usuario`. El diagrama entidad-relación y las decisiones de modelado están en
+`tokens_usuario`, y las del cierre del Hito 3: `imagenes`, `direcciones` y `preguntas_librero`. El diagrama entidad-relación y las decisiones de modelado están en
 [`docs/modelo-datos.md`](./docs/modelo-datos.md).
 
-### Imagen Docker
+### Imagen Docker y versiones
 
 El `Dockerfile` construye la imagen en dos etapas (compilar y ejecutar), deja solo las
-dependencias de producción y corre con un usuario sin privilegios. Para construirla sola:
+dependencias de producción y corre con un usuario sin privilegios. La publica GitHub Actions
+al crear un tag `vX.Y.Z` que coincida con `package.json`. Para construirla a mano:
 
 ```bash
-docker build -t leeconnos-backend:hito-3 .
+docker build -t usuario/leeconnos-backend:0.4.0 .
 ```
 
-### Decisiones técnicas del Hito 2
+El detalle (secrets de Docker Hub, cambio de versión en el servidor, HTTPS y cookies) está en
+[`docs/despliegue.md`](./docs/despliegue.md).
+
+### Sesión de la Aplicación Web
+
+Al iniciar sesión la API deja el token en cookies HttpOnly (`lcn_access` y `lcn_refresh`),
+que el JavaScript del navegador no puede leer. La Web debe enviar las peticiones con
+credenciales (`credentials: 'include'`); Mobile y Swagger siguen usando
+`Authorization: Bearer`. `POST /auth/logout` cierra la sesión en todos los dispositivos.
+
+### Decisiones técnicas
 
 - **Foco en los flujos core.** Se priorizó que explorar, comprar y seguir un pedido
   funcionen de verdad, por sobre profundizar los módulos diferenciales, que conservan su
   contrato del Hito 1.
-- **Scripts SQL en vez de `synchronize`.** La estructura de la base se versiona en
-  `db/01-schema.sql`; el ORM nunca la modifica.
+- **Migraciones de TypeORM en vez de `synchronize`.** La estructura y los datos de prueba se
+  versionan en `src/database/migrations` y se aplican al arrancar cada versión.
+- **El servidor no compila.** Se despliega una imagen versionada de Docker Hub; actualizar es
+  cambiar `API_VERSION`.
 - **Checkout en una transacción.** Validar stock, descontarlo, guardar los precios del
   momento y vaciar el carrito ocurre todo o nada.
-- **Guard de autenticación global.** Toda ruta exige token salvo las marcadas con
+- **Guard de autenticación global.** Toda ruta exige sesión salvo las marcadas con
   `@Public()`: olvidar proteger un endpoint nuevo no lo deja abierto.
+- **Pipes que consultan la base.** `LibroExistePipe` y `LibreroExistePipe` cargan la entidad
+  de la ruta o responden 404 antes de llegar al service.
 - **Dummy con reglas predecibles.** Envío, pago y seguimiento responden según los datos
   enviados, para poder demostrar casos de éxito y de error a voluntad.
 
@@ -384,7 +419,7 @@ docker build -t leeconnos-backend:hito-3 .
 |---|---|
 | [`docs/servicios.md`](./docs/servicios.md) | Endpoints, reglas dummy, códigos de error, cambios de contrato |
 | [`docs/modelo-datos.md`](./docs/modelo-datos.md) | Modelo de datos y diagrama entidad-relación |
-| [`docs/despliegue.md`](./docs/despliegue.md) | Docker y despliegue en la nube |
-| [`docs/hito3-backend.md`](./docs/hito3-backend.md) | Lo agregado en el Hito 3 y guía para reemplazar los datos dummy del Front |
+| [`docs/despliegue.md`](./docs/despliegue.md) | Versionado, Docker Hub, despliegue, HTTPS y cookies |
+| [`docs/hito3-backend.md`](./docs/hito3-backend.md) | Lo agregado en el Hito 3, estado frente al PDF y guía para el Front |
 | [`docs/hito2-backend.md`](./docs/hito2-backend.md) | Estado frente a las bases del Hito 2 y trabajo para el Hito 3 |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Flujo de ramas, commits y Pull Requests |

@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -36,10 +37,14 @@ export class RestablecerPasswordDto extends TokenCuentaDto {
 }
 
 export class RefreshTokenDto {
-  @ApiProperty({ description: 'refreshToken entregado por login o registro' })
+  @ApiPropertyOptional({
+    description:
+      'refreshToken entregado por login o registro. Opcional si viaja en la cookie lcn_refresh (Web).',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(10)
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 export class GoogleLoginDto {

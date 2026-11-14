@@ -1,21 +1,21 @@
-**LeeConNos Backend**
+**LeeConNos Backend · v0.4.0**
 
-- [🏠 Home](Home)
+- [Home](Home)
 
 **Empezar**
-- [Cómo Ejecutar el Proyecto](Como-Ejecutar-el-Proyecto)
-
-**Diseño técnico**
-- [Arquitectura General](Arquitectura-General)
-- [Organización del Proyecto](Organizacion-del-Proyecto)
-- [Flujo de Ramas y Contribución](Flujo-de-Ramas-y-Contribucion)
+- [Cómo ejecutar el proyecto](Como-Ejecutar-el-Proyecto)
+- [Flujo de ramas y contribución](Flujo-de-Ramas-y-Contribucion)
 
 **API**
-- [Servicios Identificados](Servicios-Identificados)
-- [DTOs de Entrada y Salida](DTOs-de-Entrada-y-Salida)
-- [Documentación OpenAPI / Swagger](Documentacion-OpenAPI-Swagger)
+- [Servicios](Servicios)
+- [Autenticación y autorización](Autenticacion-y-Autorizacion)
+- [Imágenes](Imagenes)
 
-**Producto**
-- [Sistemas Identificados](Sistemas-Identificados)
-- [Decisiones Técnicas](Decisiones-Tecnicas)
-- [Roadmap — Hito 2](Roadmap-Hito-2)
+**Datos y despliegue**
+- [Modelo de datos y migraciones](Modelo-de-Datos-y-Migraciones)
+- [Versionado y despliegue](Versionado-y-Despliegue)
+
+**Diseño técnico**
+- [Arquitectura general](Arquitectura-General)
+- [Decisiones técnicas](Decisiones-Tecnicas)
+- [Pendientes](Pendientes)

@@ -1,0 +1,7 @@
+# Override para construir la imagen desde el código en vez de descargarla:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+# Útil en desarrollo o para probar una versión antes de publicarla.
+services:
+  api:
+    build: .
+    image: ${DOCKERHUB_USUARIO:-local}/leeconnos-backend:${API_VERSION:-dev}

@@ -1,7 +1,9 @@
-# Hito 2 actualización · Lo que agregó Backend
+# Hito 3 · Lo que agregó Backend
 
-Este documento resume los cambios de la rama `feature/hito3-backend-ux`. Cubre lo que UX diseñó y la API no
-tenía (el Front lo mostraba con datos de prueba) y los puntos pendientes que levantó el equipo Web.
+Este documento resume el trabajo de Backend en el Hito 3, en dos partes: lo que UX diseñó y la API no tenía
+(rama `feature/hito3-backend-ux`, versión 0.3.0) y el **cierre del hito** frente al PDF de la entrega
+(rama `feature/hito-3-backend`, versión 0.4.0, más abajo).
+
 Los endpoints completos están en Swagger (`/docs`) y en [`servicios.md`](./servicios.md).
 
 ## Resumen por pedido del equipo
@@ -23,7 +25,7 @@ Los endpoints completos están en Swagger (`/docs`) y en [`servicios.md`](./serv
 | Acceso con Google y Facebook | Listo; falta configurar las credenciales | `POST /auth/google`, `POST /auth/facebook` |
 | Géneros del menú sin libros | Resuelto: 51 libros nuevos; todas las categorías del menú tienen libros | `GET /libros/categorias`; `genero` acepta los nombres del menú |
 | Stock compartido antes de la revisión | Listo | `POST /admin/reiniciar-stock` (ADMIN) o `npm run db:reset-stock` |
-| Portadas de Papelucho y Desolación | Resuelto con portadas de otra edición en Open Library | `db/04-hito3-seed.sql` |
+| Portadas de Papelucho y Desolación | Resuelto con portadas de otra edición en Open Library | Migración `DatosPruebaHito3` |
 | HTTPS | Listo para activar | Perfil `https` de `docker-compose.yml` (Caddy + Let's Encrypt) |
 | Sesión de 2 horas sin renovación | Resuelto | `refreshToken` (7 días) + `POST /auth/refresh` |
 | Nombre y apellido juntos | Resuelto: se guardan por separado (las cuentas existentes se separan solas) | `nombre`, `apellido`, `nombreCompleto` en el usuario |
@@ -165,41 +167,21 @@ Errores: `CUPON_NO_ENCONTRADO` (404), `CUPON_VENCIDO`, `CUPON_AGOTADO`, `CUPON_M
 
 ## Para la revisión: datos y stock
 
-- Usuarios de prueba (contraseña de desarrollo en `db/02-seed.sql`): `cliente@`, `librero@` y `admin@leeconnos.cl`;
+- Usuarios de prueba (contraseña de desarrollo en la migración `DatosPruebaIniciales`): `cliente@`, `librero@` y `admin@leeconnos.cl`;
   los libreros de los wireframes `gregorio@`, `ana@`, `tyler@` y `clara@leeconnos.cl`; y los lectores que firman
   las reseñas, `lector1@` a `lector6@leeconnos.cl`.
 - **Reponer el stock antes de la revisión:** con el usuario ADMIN, `POST /admin/reiniciar-stock` desde Swagger.
   Deja el stock como en los datos de prueba y cancela los pedidos pendientes de pago; no borra nada más.
 
-## Desplegar en el servidor actual
+## Desplegar en el servidor
 
-La base del servidor ya tiene datos del Hito 2. Los scripts nuevos (`db/03` y `db/04`) son idempotentes y se
-aplican sin borrar nada:
-
-```bash
-git pull
-docker compose up -d --build
-docker compose exec api node scripts/db-setup.js
-```
-
-Revisar en `.env` las variables nuevas (ver `.env.example`): `JWT_REFRESH_EXPIRES_IN`, `FRONTEND_URL`,
-`EXPONER_TOKENS_DEV`, `GOOGLE_CLIENT_ID`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` y `DOMINIO`.
-
-### Activar HTTPS
-
-Si la Web se publica con `https`, el navegador bloquea las llamadas a una API `http`. El perfil `https`
-agrega Caddy delante de la API y obtiene el certificado de Let's Encrypt solo:
-
-1. Sin dominio propio sirve [sslip.io](https://sslip.io): `3-131-220-134.sslip.io` resuelve a la IP del
-   servidor. En `.env`: `DOMINIO=3-131-220-134.sslip.io`.
-2. Abrir los puertos 80 y 443 en el firewall/grupo de seguridad del servidor.
-3. `docker compose --profile https up -d`
-4. La API queda en `https://3-131-220-134.sslip.io` (Swagger en `/docs`). Actualizar `VITE_API_URL` en la Web
-   y `CORS_ORIGIN` en el `.env` de la API.
+Desde la versión 0.4.0 el servidor ejecuta la imagen publicada en Docker Hub y se actualiza cambiando
+`API_VERSION`; las migraciones se aplican al arrancar. El paso a paso, HTTPS incluido, está en
+[`despliegue.md`](./despliegue.md).
 
 ## Decisiones técnicas
 
-- **Migraciones idempotentes.** `db/03-hito3-schema.sql` usa `ADD COLUMN IF NOT EXISTS` y bloques `DO` que
+- **Migraciones idempotentes.** La migración `EsquemaHito3` (antes `db/03-hito3-schema.sql`) usa `ADD COLUMN IF NOT EXISTS` y bloques `DO` que
   revisan el catálogo de Postgres, así que corre igual sobre una base vacía (Docker) o sobre la del servidor.
   La separación de nombre y apellido se registra en `migraciones_aplicadas` para ejecutarse una sola vez.
 - **Estadísticas desnormalizadas.** `calificacion`, `opiniones` y `ventas` viven en `libros` para poder ordenar
@@ -219,7 +201,72 @@ agrega Caddy delante de la API y obtiene el certificado de Let's Encrypt solo:
 
 ## Pruebas
 
-`npm run test:e2e` corre 44 pruebas (23 del Hito 2 + 21 nuevas) contra PostgreSQL: catálogo enriquecido, cuenta
-(apellido, newsletter, verificación, contraseña, refresh, acceso social), reseñas, libreros, recomendaciones,
-listas de deseos, club de lectura, cupones, compra como invitado y reposición de stock. Al terminar reponen el
-stock, así que se pueden correr varias veces seguidas.
+`npm run test:e2e` corre 59 pruebas contra PostgreSQL: las 23 del Hito 2, 21 de la primera parte del Hito 3
+(catálogo enriquecido, cuenta, reseñas, libreros, recomendaciones, listas de deseos, club de lectura, cupones,
+compra como invitado y reposición de stock) y 15 del cierre (migraciones, cookies, imágenes, direcciones,
+preguntas al librero y filtros). Al terminar reponen el stock, así que se pueden correr varias veces seguidas.
+Las mismas pruebas corren en GitHub Actions, contra una base vacía, antes de publicar cada imagen.
+
+---
+
+## Cierre del Hito 3 (versión 0.4.0)
+
+Respuesta a la revisión del equipo del 11 de noviembre, que comparó el PDF del Hito 3 con lo publicado.
+
+### Requisitos de Backend del PDF
+
+| Requisito del PDF | Estado | Cómo se resolvió |
+|---|---|---|
+| Servicios para los flujos principales, conectados a la base | Cumple | 116 operaciones sobre PostgreSQL |
+| DTO de entrada y salida, y validaciones de entrada | Cumple | `class-validator` en todos los DTO, `ValidationPipe` global |
+| Validaciones que consultan la base con pipes | **Resuelto** | `LibroExistePipe` y `LibreroExistePipe` cargan la entidad o responden 404 antes de llegar al service |
+| Respuestas y errores coherentes; Swagger actualizado | Cumple | `ErrorResponseDto` en todos los errores; Swagger muestra la versión |
+| Modelo de datos y diagrama entidad-relación | **Resuelto** | [`modelo-datos.md`](./modelo-datos.md): las 24 tablas del dominio, con las del Hito 3 y el cierre |
+| Integración con la base mediante TypeORM | Cumple | `synchronize: false` |
+| Migraciones de TypeORM con los datos de prueba | **Resuelto** | 6 migraciones en `src/database/migrations`; se aplican al arrancar. Se eliminaron `db/*.sql` y `scripts/db-setup.js` |
+| Subida de imágenes y servidor de archivos estáticos | **Resuelto** | `POST /imagenes`; archivos en `/uploads/*`, volumen Docker propio |
+| Imágenes integradas con la administración de productos | **Resuelto** | `POST /libros/:id/portada`, `POST /libros/:id/galeria`, `GET /libros/:id/imagenes`, `DELETE /imagenes/:id` |
+| Login, hashing, JWT, rutas protegidas, perfiles, 401/403 | Cumple | bcrypt, JWT con refresh, `@Roles`, guard global |
+| Reglas de autorización en el registro | Cumple (verificado) | `POST /auth/registro` con `rol` distinto de CLIENTE responde 403; hay prueba e2e |
+| Autenticación integrada con Frontend (cookies HttpOnly) | **Resuelto** | Cookies `lcn_access` y `lcn_refresh`, `POST /auth/logout`, CORS con credenciales y control de origen (CSRF) |
+| Versión semántica en `package.json` | Cumple | `0.4.0` |
+| Tags de Git para versiones estables | Pendiente del cierre | `v0.4.0` y `hito-3` sobre el commit de `main` |
+| Imágenes Docker versionadas en Docker Hub | **Resuelto**, falta publicar | Workflow `docker-publish.yml` al subir el tag; requiere los secrets de Docker Hub |
+| Actualizar el servidor cambiando la versión de la imagen | **Resuelto** | `docker-compose.yml` usa `image: ${DOCKERHUB_USUARIO}/leeconnos-backend:${API_VERSION}`, sin `build` |
+| Contenedor de base de datos en el servidor | Cumple | `postgres:16-alpine` con volumen `pgdata` |
+| Wiki actualizada | Pendiente | Ver "Pendiente" abajo |
+
+### Pedidos de Frontend
+
+| Pedido | Estado | Dónde |
+|---|---|---|
+| `POST /auth/logout` | Listo | Borra las cookies e invalida todos los refresh del usuario |
+| Campos del despacho: RUT, ciudad, código postal | Listo, opcionales | `direccion.rut` (valida dígito verificador), `ciudad`, `codigoPostal` en `POST /pedidos` |
+| Direcciones guardadas | Listo | `GET/POST/PATCH/DELETE /direcciones`; en el checkout `direccionId` y `guardarDireccion` |
+| Pregunta al librero | Listo | `POST /libreros/:id/preguntas` (sin sesión); el librero lista y responde |
+| Varias editoriales y subgéneros en `GET /libros` | Listo | `editoriales` y `subgeneros`, como `autores` |
+| `GET /libros/filtros` con `q` y `genero` | Listo | Solo devuelve opciones con resultados |
+| Datos de prueba: subgénero, video y galería | Listo | Los 75 libros tienen subgénero; Dune y Harry Potter tienen tráiler; 4 libros tienen galería |
+
+### Decisiones técnicas del cierre
+
+- **Las migraciones se aplican al arrancar.** Desplegar una versión nueva de la imagen deja la base al día sin
+  entrar al servidor. `DB_MIGRAR_AL_INICIAR=false` las desactiva si se prefiere hacerlo a mano.
+- **Cookies y Bearer conviven.** La Web usa las cookies HttpOnly; Mobile y Swagger siguen con
+  `Authorization: Bearer`. El guard acepta cualquiera de los dos.
+- **CSRF.** Con sesión por cookie, las peticiones que modifican datos solo se aceptan desde un origen de
+  `CORS_ORIGIN`; las demás responden `403 ORIGEN_NO_PERMITIDO`.
+- **Cerrar sesión invalida todos los refresh** del usuario con un contador (`version_sesion`), sin guardar cada
+  token. El access token sigue siendo válido hasta que vence (2 h), pero la Web ya no lo tiene.
+- **Las imágenes se validan por contenido**, no por la extensión ni el tipo que declara el cliente: se revisan
+  los primeros bytes (JPG, PNG o WEBP) y se guardan con un nombre aleatorio.
+- **El servidor no compila.** GitHub Actions corre las pruebas y publica la imagen solo si el tag coincide con
+  `package.json`.
+
+### Pendiente
+
+- Configurar `DOCKERHUB_USERNAME` y `DOCKERHUB_TOKEN` en GitHub, crear el tag `v0.4.0` y desplegar la imagen.
+- Demostrar el cambio de versión en el servidor (0.4.0 → 0.4.1) para el video.
+- Activar HTTPS en el servidor; sin él, la sesión por cookie solo funciona con Web y API en el mismo sitio.
+- Pasar esta documentación a la wiki del repositorio y eliminar las páginas duplicadas.
+- Crear el tag `hito-3` y registrar su hash en la presentación.

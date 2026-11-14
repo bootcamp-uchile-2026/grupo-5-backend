@@ -66,18 +66,25 @@ docs: actualizar README con instrucciones de instalación
 - [ ] Los tests e2e existentes siguen pasando (`npm run test:e2e`)
 - [ ] Los nuevos endpoints están documentados con `@ApiTags` / `@ApiOperation`
 - [ ] Los DTOs nuevos tienen decoradores de `class-validator`
-- [ ] Se actualizó [Servicios Identificados](Servicios-Identificados) si se agregó/cambió un servicio
+- [ ] Si cambia la base, hay una migración nueva en `src/database/migrations` con su `down`
+- [ ] Se actualizó `docs/servicios.md` si se agregó o cambió un servicio
 
 ## Publicar y taguear una entrega
 
-```bash
-# Etiquetar la versión de un hito
-git tag -a hito-1 -m "Entrega Hito 1 - Backend LeeConNos"
-git push origin hito-1
+Cada entrega lleva dos tags sobre el mismo commit de `main`: el de versión (`v0.4.0`, que dispara la
+publicación de la imagen en Docker Hub) y el del hito (`hito-3`).
 
-# Obtener el hash del commit para la presentación
-git rev-parse hito-1
+```bash
+# En main, después del último merge
+git tag v0.4.0
+git tag -a hito-3 -m "Entrega Hito 3 - Backend LeeConNos"
+git push origin v0.4.0 hito-3
+
+# Hash del commit para la presentación
+git rev-list -n 1 hito-3
 ```
+
+Ver [Versionado y despliegue](Versionado-y-Despliegue).
 
 ---
 Ver también: [Cómo Ejecutar el Proyecto](Como-Ejecutar-el-Proyecto) · [Decisiones Técnicas](Decisiones-Tecnicas)

@@ -1,56 +1,51 @@
-# Arquitectura General de la API
+# Arquitectura general
 
-Cómo viaja una petición desde el cliente hasta la respuesta.
+NestJS 11 con TypeScript, organizado por **módulos de dominio** (uno por funcionalidad del negocio), sobre
+PostgreSQL 16 con TypeORM.
+
+## Recorrido de una petición
 
 ```mermaid
 flowchart LR
-    A[Cliente<br/>Frontend o Mobile] --> B[Controller<br/>recibe la ruta]
-    B --> C[Service<br/>aplica la lógica]
-    C --> D[(Datos<br/>en memoria)]
-    C -.respuesta validada por DTO.-> A
+    C[Web / Mobile] --> M[Middleware<br/>x-request-id y logs]
+    M --> G[Guards<br/>JWT o cookie, roles]
+    G --> P[Pipes<br/>DTO y consultas a la base]
+    P --> CT[Controller]
+    CT --> S[Service]
+    S --> DB[(PostgreSQL)]
+    S -.-> D[Dummy<br/>pago, envío, correo]
+    CT --> R[Respuesta]
+    G -. error .-> F[Filtro de errores]
+    P -. error .-> F
+    S -. error .-> F
+    F --> R
 ```
 
-## Analogía: un restaurante
-
-Para entender los cuatro conceptos clave, piensa en un restaurante:
-
-| Pieza | Analogía | Qué hace |
+| Capa | Qué hace | Dónde |
 |---|---|---|
-| **Controller** | El mesero | Define las rutas HTTP (`/libros`, `/usuarios`) y qué método (GET, POST, PATCH, DELETE) dispara qué acción. No contiene lógica de negocio, solo recibe y delega. |
-| **Service** | El cocinero | Contiene la lógica real: crear, validar reglas, calcular. Es la capa que en hitos siguientes hablará con la base de datos real. |
-| **DTO** | La comanda | Define exactamente qué datos deben entrar o salir de un endpoint, con validaciones automáticas (`class-validator`). Si falta un campo obligatorio o sobra uno no declarado, la API responde `400`. |
-| **Module** | La puerta del departamento | Conecta Controller y Service para que NestJS sepa que existen. Cada dominio de negocio (usuarios, libros, etc.) tiene el suyo. |
+| Middleware | Genera o reutiliza el `x-request-id`, registra la entrada (fecha, método, path, body sin datos sensibles) y la salida (código y tiempo) | `common/middleware` |
+| Guards | `JwtAuthGuard` global: acepta `Authorization: Bearer` o la cookie HttpOnly; `RolesGuard` aplica `@Roles()` | `modules/auth/guards` |
+| Pipes | `ValidationPipe` global con los DTO; `UuidPipe`; `LibroExistePipe` y `LibreroExistePipe` consultan la base | `common/pipes`, `modules/*/pipes` |
+| Controllers | Rutas HTTP y documentación Swagger; no tienen lógica de negocio | `modules/*/*.controller.ts` |
+| Services | Lógica de negocio y transacciones | `modules/*/*.service.ts` |
+| Filtro | Convierte cualquier error en `ErrorResponseDto` con un código estable | `common/filters` |
 
-## Configuración transversal
+## Módulos
 
-Dos archivos concentran todo lo que aplica a la API completa:
+| Grupo | Módulos |
+|---|---|
+| Cuenta | `auth`, `usuarios`, `direcciones` |
+| Catálogo | `libros`, `imagenes`, `resenas`, `libreros`, `recomendaciones` |
+| Compra | `carrito`, `cupones`, `pedidos`, `pagos` (dummy), `envios` (dummy), `seguimiento` (dummy) |
+| Comunidad | `listas-deseos`, `club-lectura`, `newsletter` |
+| Soporte | `mail` (dummy), `admin` |
 
-- **`app.module.ts`** — importa los 7 módulos de dominio.
-- **`main.ts`** — configura:
-  - `ValidationPipe` global (`whitelist`, `forbidNonWhitelisted`, `transform`)
-  - CORS habilitado
-  - Documentación Swagger (ver [Documentación OpenAPI / Swagger](Documentacion-OpenAPI-Swagger))
+## Transversal
 
-## Ejemplo real de flujo completo
+- **Configuración** (`config/`): valida las variables de entorno al arrancar y expone la versión de
+  `package.json` (en Swagger y en `/health`).
+- **Base de datos** (`database/`): la conexión compartida por la app y la CLI de TypeORM, y las migraciones.
+- **Archivos estáticos**: las imágenes subidas se sirven en `/uploads/*` desde `UPLOADS_DIR`.
 
-Este flujo fue probado de punta a punta sobre el proyecto:
-
-```mermaid
-sequenceDiagram
-    participant C as Cliente
-    participant U as POST /usuarios
-    participant L as POST /libros
-    participant R as GET /recomendaciones/usuario/:id
-
-    C->>U: crea usuario (género favorito: "Ciencia ficción")
-    U-->>C: 201 Created
-    C->>L: crea libro "Fundación" (género: "Ciencia ficción")
-    L-->>C: 201 Created
-    C->>R: consulta recomendaciones
-    R-->>C: [{ score: 0.6, motivo: "Coincide con tu género favorito" }]
-```
-
-Este ejemplo conecta 3 módulos distintos (`usuarios`, `libros`, `recomendaciones`) y demuestra que el motor de recomendaciones —uno de los ejes de esfuerzo diferencial del proyecto— ya funciona sobre datos reales creados a través de la propia API, no sobre datos hardcodeados. El campo `motivo` existe a propósito: hace el resultado explicable, no una caja negra.
-
----
-Ver también: [Organización del Proyecto](Organizacion-del-Proyecto) · [Decisiones Técnicas](Decisiones-Tecnicas)
+Más detalle de la estructura de carpetas en el
+[README](https://github.com/bootcamp-uchile-2026/grupo-5-backend#6-estructura-del-proyecto).

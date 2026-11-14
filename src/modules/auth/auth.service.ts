@@ -5,6 +5,7 @@ import * as bcrypt from 'bcryptjs';
 import {
   CredencialesInvalidasException,
   TokenInvalidoException,
+  TokenRequeridoException,
 } from '../../common/exceptions/app.exceptions';
 import { CreateUsuarioDto } from '../usuarios/dto/create-usuario.dto';
 import { UsuarioResponseDto } from '../usuarios/dto/usuario-response.dto';
@@ -52,7 +53,27 @@ export class AuthService {
   }
 
   /** Entrega un accessToken nuevo sin pedir la contraseña otra vez. */
-  async refrescar(refreshToken: string): Promise<AuthResponseDto> {
+  async refrescar(refreshToken: string | undefined): Promise<AuthResponseDto> {
+    return this.emitir(await this.usuarioDelRefresh(refreshToken));
+  }
+
+  /**
+   * Cierra la sesión: invalida todos los refresh tokens emitidos al usuario
+   * (en este y en otros dispositivos). Sin refresh válido no hay nada que
+   * invalidar, y la operación igual se considera exitosa.
+   */
+  async cerrarSesion(refreshToken: string | undefined): Promise<void> {
+    if (!refreshToken) return;
+    const usuario = await this.usuarioDelRefresh(refreshToken).catch(
+      () => null,
+    );
+    if (usuario) await this.usuarios.incrementarVersionSesion(usuario.id);
+  }
+
+  private async usuarioDelRefresh(
+    refreshToken: string | undefined,
+  ): Promise<Usuario> {
+    if (!refreshToken) throw new TokenRequeridoException();
     let payload: JwtPayload;
     try {
       payload = await this.jwt.verifyAsync<JwtPayload>(refreshToken);
@@ -64,7 +85,11 @@ export class AuthService {
     const usuario = await this.usuarios.obtener(payload.sub).catch(() => {
       throw new TokenInvalidoException();
     });
-    return this.emitir(usuario);
+    // Tras cerrar sesión, los refresh anteriores dejan de servir.
+    if ((payload.ver ?? 0) !== usuario.versionSesion) {
+      throw new TokenInvalidoException();
+    }
+    return usuario;
   }
 
   async conGoogle(idToken: string): Promise<AuthResponseDto> {
@@ -86,9 +111,12 @@ export class AuthService {
     );
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(claims),
-      this.jwt.signAsync({ ...claims, typ: TIPO_REFRESH }, {
-        expiresIn: refreshExpiresIn,
-      } as JwtSignOptions),
+      this.jwt.signAsync(
+        { ...claims, typ: TIPO_REFRESH, ver: usuario.versionSesion },
+        {
+          expiresIn: refreshExpiresIn,
+        } as JwtSignOptions,
+      ),
     ]);
     return {
       accessToken,

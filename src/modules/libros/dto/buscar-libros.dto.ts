@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -95,6 +95,20 @@ export class BuscarLibrosDto {
   editorial?: string;
 
   @ApiPropertyOptional({
+    type: [String],
+    example: 'Anagrama,Debolsillo',
+    description:
+      'Varias editoriales a la vez (coincidencia parcial con cualquiera). Separadas por coma o repitiendo el parámetro.',
+  })
+  @IsOptional()
+  @Transform(lista)
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(120, { each: true })
+  editoriales?: string[];
+
+  @ApiPropertyOptional({
     example: 'Novela negra',
     description: 'Subgénero exacto (sin distinguir mayúsculas)',
   })
@@ -102,6 +116,20 @@ export class BuscarLibrosDto {
   @IsString()
   @MaxLength(60)
   subgenero?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: 'Novela negra,Thriller psicológico',
+    description:
+      'Varios subgéneros a la vez (exactos, cualquiera de ellos). Separados por coma o repitiendo el parámetro.',
+  })
+  @IsOptional()
+  @Transform(lista)
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(60, { each: true })
+  subgeneros?: string[];
 
   @ApiPropertyOptional({
     example: 'Clásicos',
@@ -193,3 +221,9 @@ export class BuscarLibrosDto {
   @Max(50)
   limit?: number = 12;
 }
+
+/** Contexto opcional de GET /libros/filtros: las mismas reglas de q y genero que GET /libros. */
+export class FiltrosQueryDto extends PickType(BuscarLibrosDto, [
+  'q',
+  'genero',
+] as const) {}

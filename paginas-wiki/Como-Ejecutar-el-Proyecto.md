@@ -1,80 +1,63 @@
-# Cómo Ejecutar el Proyecto
+# Cómo ejecutar el proyecto
 
-## Requisitos previos
+Requisitos: Node.js 20 o superior y Git. PostgreSQL no hace falta instalarlo: el proyecto trae uno embebido
+para desarrollo (`npm run db:local`), o se puede usar Docker.
 
-- **Node.js v18 o superior** (necesario por el uso de `fetch` nativo en la integración con Open Library)
-- **npm** (incluido con la instalación de Node.js)
-
-## Variables de entorno
-
-El proyecto incluye un archivo `.env.example` con la configuración necesaria. Antes de ejecutar la aplicación, cópialo como `.env`:
+## Desarrollo
 
 ```bash
+git clone https://github.com/bootcamp-uchile-2026/grupo-5-backend.git
+cd grupo-5-backend
+npm install
 cp .env.example .env
 ```
 
-| Variable | Descripción | Valor por defecto |
-|---|---|---|
-| `PORT` | Puerto en el que se levanta la API | `3000` |
-
-> **Nota:** las variables de base de datos y JWT están comentadas en `.env.example`, ya que en este hito la persistencia es en memoria y la autenticación aún es simulada — se activarán en el [Roadmap — Hito 2](Roadmap-Hito-2).
-
-## Comandos exactos
+En una terminal, dejar corriendo PostgreSQL:
 
 ```bash
-# 1. Instalar dependencias
-npm install
+npm run db:local
+```
 
-# 2. Verificar que el proyecto compila sin errores
-npm run build
+En otra, levantar la API:
 
-# 3. Ejecutar los tests automáticos end-to-end
-npm run test:e2e
-
-# 4. Levantar el servidor en modo desarrollo
+```bash
 npm run start:dev
 ```
 
-## Resultado esperado
+Al arrancar, la API aplica las **migraciones de TypeORM** pendientes: crea las tablas y carga los datos de
+prueba (75 libros, libreros, reseñas, cupones y cuentas de ejemplo). No hay que ejecutar scripts SQL.
 
-- `npm install`: instala las dependencias sin errores críticos (las advertencias de vulnerabilidades y `allow-scripts` son normales).
-- `npm run build`: termina sin mensajes de error.
-- `npm run test:e2e`: **2/2 tests aprobados** (`PASS test/app.e2e-spec.ts`).
-- `npm run start:dev`: inicializa los 7 módulos, mapea todas las rutas, y finaliza con:
+- API: http://localhost:3000
+- Swagger: http://localhost:3000/docs
+- Estado y versión: http://localhost:3000/health
 
-```
-🚀 LeeConNos API corriendo en http://localhost:3000
-📚 Documentación Swagger en http://localhost:3000/docs
-```
+En Windows, clonar en una ruta corta (por ejemplo `C:\dev`): el PostgreSQL embebido falla en rutas largas.
 
-## Verificar que todo funciona
+## Scripts útiles
+
+| Script | Qué hace |
+|---|---|
+| `npm run migration:show` | Migraciones aplicadas y pendientes |
+| `npm run migration:run` / `migration:revert` | Aplicar las pendientes / revertir la última |
+| `npm run db:reset` | Borrar todas las tablas y volver a aplicar las migraciones |
+| `npm run db:reset-stock` | Reponer el stock de prueba antes de una demo |
+| `npm run test:e2e` | Las 59 pruebas de punta a punta |
+| `npm run lint` | ESLint y Prettier |
+
+## Con Docker
+
+Para construir la imagen desde el código:
 
 ```bash
-curl http://localhost:3000/libros
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
-Debería responder `[]` (catálogo vacío al iniciar).
+En el servidor no se construye: se usa la imagen publicada en Docker Hub. Ver
+[Versionado y despliegue](Versionado-y-Despliegue).
 
-Luego abre en el navegador `http://localhost:3000/docs` para ver la documentación interactiva Swagger con los 7 módulos disponibles — ver [Documentación OpenAPI / Swagger](Documentacion-OpenAPI-Swagger).
+## Variables de entorno
 
-## Probar un flujo real
-
-```bash
-# Crear un usuario con un género favorito
-curl -X POST http://localhost:3000/usuarios \
-  -H "Content-Type: application/json" \
-  -d '{"nombre":"Camila Rojas","email":"camila@correo.cl","password":"contraseña123","rol":"CLIENTE","generosFavoritos":["Ciencia ficción"]}'
-
-# Crear un libro del mismo género
-curl -X POST http://localhost:3000/libros \
-  -H "Content-Type: application/json" \
-  -d '{"isbn":"9780061120084","titulo":"Fundación","autor":"Isaac Asimov","genero":"Ciencia ficción","stock":5,"precio":12990}'
-
-# Consultar recomendaciones (reemplaza {id} por el id devuelto al crear el usuario)
-curl http://localhost:3000/recomendaciones/usuario/{id}
-```
-
-El resultado debería incluir el libro con un `score` y un `motivo` explicando la recomendación.
-
----
-Ver también: [Organización del Proyecto](Organizacion-del-Proyecto) · [Flujo de Ramas y Contribución](Flujo-de-Ramas-y-Contribucion)
+Todas están documentadas en
+[`.env.example`](https://github.com/bootcamp-uchile-2026/grupo-5-backend/blob/main/.env.example) y en el
+[README](https://github.com/bootcamp-uchile-2026/grupo-5-backend#3-configuración). La API valida las
+obligatorias al arrancar y no levanta si falta alguna.

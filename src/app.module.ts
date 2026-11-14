@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { opcionesBaseDatos } from './database/opciones';
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health.controller';
 import { AdminModule } from './modules/admin/admin.module';
@@ -9,7 +10,9 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CarritoModule } from './modules/carrito/carrito.module';
 import { ClubLecturaModule } from './modules/club-lectura/club-lectura.module';
 import { CuponesModule } from './modules/cupones/cupones.module';
+import { DireccionesModule } from './modules/direcciones/direcciones.module';
 import { EnviosModule } from './modules/envios/envios.module';
+import { ImagenesModule } from './modules/imagenes/imagenes.module';
 import { LibrerosModule } from './modules/libreros/libreros.module';
 import { LibrosModule } from './modules/libros/libros.module';
 import { ListasDeseosModule } from './modules/listas-deseos/listas-deseos.module';
@@ -32,15 +35,14 @@ import { UsuariosModule } from './modules/usuarios/usuarios.module';
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        type: 'postgres' as const,
-        url: config.get<string>('DATABASE_URL'),
-        ssl:
-          config.get('DB_SSL') === 'true'
-            ? { rejectUnauthorized: false }
-            : false,
+        ...opcionesBaseDatos(
+          config.get<string>('DATABASE_URL'),
+          config.get('DB_SSL') === 'true',
+        ),
         autoLoadEntities: true,
-        // La estructura la crean los scripts de db/, nunca el ORM.
-        synchronize: false,
+        // Al arrancar se aplican las migraciones pendientes: la base queda lista
+        // (estructura y datos de prueba) sin ejecutar scripts a mano.
+        migrationsRun: config.get('DB_MIGRAR_AL_INICIAR', 'true') === 'true',
       }),
     }),
     // Funcionales sobre PostgreSQL
@@ -48,7 +50,9 @@ import { UsuariosModule } from './modules/usuarios/usuarios.module';
     AuthModule,
     UsuariosModule,
     LibrosModule,
+    ImagenesModule,
     CarritoModule,
+    DireccionesModule,
     CuponesModule,
     PedidosModule,
     ResenasModule,
