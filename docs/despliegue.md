@@ -4,7 +4,7 @@ El servidor nunca compila código: descarga de Docker Hub la imagen de una versi
 Para actualizarlo basta con cambiar la versión de la imagen.
 
 ```
-package.json 0.4.0  →  tag de Git v0.4.0  →  imagen usuario/leeconnos-backend:0.4.0  →  API_VERSION=0.4.0 en el servidor
+package.json 0.4.0  →  tag de Git v0.4.0  →  imagen montseastica/leeconnos-backend:0.4.0  →  API_VERSION=0.4.0 en el servidor
 ```
 
 Los tres números deben coincidir; el workflow de publicación falla si el tag no coincide con `package.json`.
@@ -50,8 +50,8 @@ Los tres números deben coincidir; el workflow de publicación falla si el tag n
 
 4. GitHub Actions (`.github/workflows/docker-publish.yml`) verifica que el tag coincide con `package.json`,
    corre las pruebas e2e contra un PostgreSQL limpio y publica:
-   - `usuario/leeconnos-backend:0.4.1`
-   - `usuario/leeconnos-backend:latest`
+   - `montseastica/leeconnos-backend:0.4.1`
+   - `montseastica/leeconnos-backend:latest`
 
    El avance se ve en la pestaña **Actions** del repositorio; la imagen, en Docker Hub.
 
@@ -93,6 +93,8 @@ Variables a revisar en el `.env` del servidor:
 | `POSTGRES_PASSWORD` | Clave propia (solo letras y números) |
 | `CORS_ORIGIN` | URL de la Aplicación Web, por ejemplo `http://localhost:5173` mientras Front desarrolla |
 | `PUBLIC_URL` | URL pública de la API, para las URL de las imágenes: `http://3.131.220.134:3000` |
+| `FRONTEND_URL` | URL de la Aplicación Web: los enlaces de los correos apuntan ahí (`/verificar-correo?token=...`) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Servidor de correo para enviar los correos de verdad (ver abajo). Sin ellos, solo quedan en el log |
 | `COOKIE_SECURE` / `COOKIE_SAMESITE` | Ver sección 4 |
 
 Si el servidor ya ejecutaba la API construida desde el código (Hito 2), **conservar el mismo `.env` y la
@@ -186,7 +188,36 @@ Caddy pide y renueva solo el certificado. La API queda en `https://3-131-220-134
 publicar Web y API bajo el mismo dominio (por ejemplo `app.dominio.cl` y `api.dominio.cl` con
 `COOKIE_DOMAIN=.dominio.cl`).
 
-## 5. Operación
+## 5. Correos reales
+
+Sin `SMTP_HOST`, los correos (verificación de cuenta, recuperación de contraseña, pedidos, preguntas al
+librero) quedan en el log con su enlace: sirve para desarrollar, pero no llegan a nadie. Para enviarlos de
+verdad basta con una cuenta de Gmail:
+
+1. En la cuenta de Google, activar la **verificación en dos pasos**.
+2. Crear una **contraseña de aplicación** en https://myaccount.google.com/apppasswords (16 letras).
+3. En el `.env` del servidor:
+
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_USER=cuenta@gmail.com
+   SMTP_PASS=la contraseña de aplicación, sin espacios
+   MAIL_FROM=LeeConNos <cuenta@gmail.com>
+   FRONTEND_URL=https://url-de-la-web
+   ```
+
+4. Reiniciar la API:
+
+   ```bash
+   docker compose up -d api
+   ```
+
+Al registrarse, el usuario recibe el correo con el enlace `FRONTEND_URL/verificar-correo?token=...`. Si el
+proveedor falla, el registro igual se completa, el error queda en el log y el usuario puede pedir el reenvío
+con `POST /auth/reenviar-verificacion`. Gmail permite unos 500 correos al día, de sobra para la demo.
+
+## 6. Operación
 
 | Tarea | Comando |
 |---|---|
@@ -197,7 +228,7 @@ publicar Web y API bajo el mismo dominio (por ejemplo `app.dominio.cl` y `api.do
 | Entrar a la base | `docker compose exec db psql -U leeconnos` |
 | Respaldo de la base | `docker compose exec db pg_dump -U leeconnos leeconnos > respaldo.sql` |
 
-## 6. Construir en local
+## 7. Construir en local
 
 Para probar una versión antes de publicarla:
 

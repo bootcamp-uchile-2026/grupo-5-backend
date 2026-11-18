@@ -10,7 +10,7 @@ recomendación personalizada de sus libreros.
 | Swagger (contratos vigentes) | http://3.131.220.134:3000/docs |
 | URL base de la API | http://3.131.220.134:3000 |
 | Repositorio | https://github.com/bootcamp-uchile-2026/grupo-5-backend |
-| Imagen Docker | `usuario/leeconnos-backend:0.4.0` en Docker Hub |
+| Imagen Docker | [`montseastica/leeconnos-backend`](https://hub.docker.com/r/montseastica/leeconnos-backend) en Docker Hub |
 
 ## Empezar aquí
 
