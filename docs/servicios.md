@@ -374,7 +374,7 @@ En `POST /pedidos` (con sesión):
 
 | Método y ruta | Acceso | Qué hace |
 |---|---|---|
-| `POST /libreros/:id/preguntas` | Pública (sesión opcional) | `{ nombre, email, pregunta }`. Avisa al librero por correo (dummy) |
+| `POST /libreros/:id/preguntas` | Pública (sesión opcional) | `{ nombre, email, pregunta }`. Avisa al librero por correo |
 | `GET /libreros/:id/preguntas` | Librero dueño o ADMIN | Preguntas recibidas |
 | `POST /libreros/:id/preguntas/:preguntaId/respuesta` | Librero dueño o ADMIN | `{ respuesta }`. Avisa a quien preguntó |
 
@@ -385,6 +385,13 @@ En `POST /pedidos` (con sesión):
 - `GET /libros` acepta `editoriales` y `subgeneros` con varios valores (separados por coma o repitiendo el parámetro).
 - `GET /libros/filtros` acepta `q` y `genero`: solo cuenta los libros que coinciden.
 - `GET /health` informa la `version` desplegada.
+
+### Correos (versión 0.4.1)
+
+Con `SMTP_HOST` configurado, los correos se envían de verdad (verificación al registrarse, recuperación de
+contraseña, pedidos, preguntas al librero). El de verificación lleva a
+`<FRONTEND_URL>/verificar-correo?token=<token>`, y la Web completa el flujo con `POST /auth/verificar-email`.
+Sin `SMTP_HOST`, siguen quedando solo en el log. Configuración en `despliegue.md`, sección 5.
 
 ### Códigos de error nuevos
 

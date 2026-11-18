@@ -90,7 +90,9 @@ Antes de ejecutar el proyecto, asegúrate de tener instalados los siguientes com
    | `JWT_EXPIRES_IN` | No | `2h` | Vigencia del token (`30m`, `2h`, `7d`) |
    | `JWT_REFRESH_EXPIRES_IN` | No | `7d` | Vigencia del `refreshToken` para renovar la sesión con `POST /auth/refresh` |
    | `FRONTEND_URL` | No | `http://localhost:5173` | URL de la Web a la que apuntan los enlaces de los correos |
-   | `EXPONER_TOKENS_DEV` | No | `false` | `true` (fuera de producción) incluye el token de los correos dummy en la respuesta |
+   | `EXPONER_TOKENS_DEV` | No | `false` | `true` (fuera de producción) incluye el token de los correos en la respuesta |
+   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | No | — | Servidor de correo. Sin `SMTP_HOST` los correos no se envían: quedan en el log |
+   | `MAIL_FROM` | No | `LeeConNos <no-responder@leeconnos.cl>` | Remitente de los correos |
    | `GOOGLE_CLIENT_ID` | No | — | Habilita `POST /auth/google`. Sin ella responde `503` |
    | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | No | — | Habilitan `POST /auth/facebook`. Sin ellas responde `503` |
    | `DOMINIO` | Solo HTTPS | `localhost` | Dominio del certificado del perfil `https` (ver [despliegue](./docs/despliegue.md)) |
