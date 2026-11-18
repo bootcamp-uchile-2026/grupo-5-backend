@@ -4,7 +4,7 @@ El servidor nunca compila código: descarga de Docker Hub la imagen de una versi
 Para actualizarlo basta con cambiar la versión de la imagen.
 
 ```
-package.json 0.4.0  →  tag de Git v0.4.0  →  imagen usuario/leeconnos-backend:0.4.0  →  API_VERSION=0.4.0 en el servidor
+package.json 0.4.0  →  tag de Git v0.4.0  →  imagen montseastica/leeconnos-backend:0.4.0  →  API_VERSION=0.4.0 en el servidor
 ```
 
 Los tres números deben coincidir; el workflow de publicación falla si el tag no coincide con `package.json`.
@@ -50,8 +50,8 @@ Los tres números deben coincidir; el workflow de publicación falla si el tag n
 
 4. GitHub Actions (`.github/workflows/docker-publish.yml`) verifica que el tag coincide con `package.json`,
    corre las pruebas e2e contra un PostgreSQL limpio y publica:
-   - `usuario/leeconnos-backend:0.4.1`
-   - `usuario/leeconnos-backend:latest`
+   - `montseastica/leeconnos-backend:0.4.1`
+   - `montseastica/leeconnos-backend:latest`
 
    El avance se ve en la pestaña **Actions** del repositorio; la imagen, en Docker Hub.
 

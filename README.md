@@ -9,12 +9,21 @@ comprar, pagar y seguir un pedido. Suma perfiles de libreros con secciones curad
 recomendaciones según géneros e historial de compras, club de lectura, reseñas y listas de
 deseos. El catálogo se enriquece con metadatos de la API gratuita de **Open Library**.
 
-> Entrega correspondiente al **Hito 3** del Bootcamp DCC — Universidad de Chile. Versión **0.4.0**.
+> Entrega correspondiente al **Hito 3** del Bootcamp DCC — Universidad de Chile. Versión **0.4.1**.
+
+| Recurso | Enlace |
+|---|---|
+| Swagger (desplegado) | http://3.131.220.134:3000/docs |
+| URL base de la API | http://3.131.220.134:3000 |
+| Versión desplegada | http://3.131.220.134:3000/health |
+| Imagen en Docker Hub | [`montseastica/leeconnos-backend`](https://hub.docker.com/r/montseastica/leeconnos-backend) |
+| Estado frente a las bases del Hito 3 | [`docs/hito3-backend.md`](./docs/hito3-backend.md) |
 
 | Estado en el Hito 3 | Módulos | Persistencia |
 |---|---|---|
-| **Funcional** | auth (JWT con refresh, verificación de correo, recuperación de contraseña, Google y Facebook), usuarios, catálogo con filtros y categorías del menú, carrito, cupones, pedidos (también como invitado), reseñas, libreros, recomendaciones, listas de deseos, club de lectura, newsletter | PostgreSQL |
-| **Dummy con reglas predecibles** | costo de envío, pago, seguimiento, envío de correos | Reglas fijas |
+| **Funcional** | auth (JWT con cookies HttpOnly, refresh y logout, verificación de correo, recuperación de contraseña, Google y Facebook), usuarios, direcciones guardadas, catálogo con filtros y categorías del menú, imágenes (portada y galería), carrito, cupones, pedidos (también como invitado), reseñas, libreros y preguntas al librero, recomendaciones, listas de deseos, club de lectura, newsletter | PostgreSQL (imágenes en disco) |
+| **Correos** | verificación de cuenta, recuperación de contraseña, pedidos, preguntas al librero | Se envían por SMTP si está configurado; si no, quedan en el log |
+| **Dummy con reglas predecibles** | costo de envío, pago, seguimiento | Reglas fijas |
 
 ## Contenidos
 
@@ -159,23 +168,35 @@ Otros scripts útiles:
 
 ## 5. Ejecución - Producción
 
-En producción la API corre desde una imagen versionada publicada en Docker Hub; el
-servidor no compila código. La versión de `package.json`, el tag de Git (`v0.4.0`) y el
-tag de la imagen (`0.4.0`) coinciden:
+En producción la API corre desde una imagen versionada publicada en Docker Hub
+([`montseastica/leeconnos-backend`](https://hub.docker.com/r/montseastica/leeconnos-backend));
+el servidor no compila código en el despliegue. La versión de `package.json`, el tag de Git
+(`v0.4.0`) y el tag de la imagen (`0.4.0`) coinciden.
 
-1. Crear el tag `v0.4.0` en `main`. GitHub Actions corre las pruebas y publica
-   `usuario/leeconnos-backend:0.4.0` en Docker Hub.
-2. En el servidor, indicar `DOCKERHUB_USUARIO` y `API_VERSION=0.4.0` en el `.env` y levantar:
+1. **Publicar la imagen** de la versión de `package.json`. Hay dos formas:
+   - Automática: al crear el tag `v0.4.0` en `main`, GitHub Actions corre las pruebas y la
+     publica (requiere los secrets `DOCKERHUB_USERNAME` y `DOCKERHUB_TOKEN`).
+   - Manual, desde cualquier equipo con Docker (así se publicó la 0.4.0, desde el servidor):
+
+     ```bash
+     docker login -u montseastica
+     sh scripts/publicar-imagen.sh montseastica
+     ```
+
+2. **Ejecutarla en el servidor**, con `DOCKERHUB_USUARIO=montseastica` y `API_VERSION=0.4.0`
+   en el `.env`:
 
    ```bash
    docker compose up -d
    ```
 
-3. Para cambiar de versión, editar `API_VERSION` y:
+3. **Cambiar de versión**: editar `API_VERSION` y
 
    ```bash
    docker compose pull api && docker compose up -d api
    ```
+
+   `GET /health` muestra la versión que quedó corriendo.
 
 Las migraciones pendientes se aplican al arrancar cada versión. Alternativa sin Docker,
 con un PostgreSQL ya disponible en `DATABASE_URL`:
@@ -187,6 +208,19 @@ npm run start:prod
 
 El paso a paso para desplegar en un servidor en la nube y los comandos de operación están
 en [`docs/despliegue.md`](./docs/despliegue.md).
+
+### Servidor actual
+
+| Dato | Valor |
+|---|---|
+| Máquina | AWS EC2, Ubuntu, IP elástica `3.131.220.134` |
+| Carpeta del despliegue | `~/leeconnos-backend/grupo-5-backend` (ahí están `.env` y `docker-compose.yml`) |
+| Contenedores | `grupo-5-backend-api-1` (imagen `montseastica/leeconnos-backend`) y `grupo-5-backend-db-1` (`postgres:16-alpine`) |
+| Volúmenes | `grupo-5-backend_pgdata` (base de datos) y `grupo-5-backend_uploads` (imágenes) |
+| Puertos abiertos | 22 (SSH) y 3000 (API). El 5432 solo en `127.0.0.1` |
+
+Los comandos de `docker compose` se ejecutan siempre desde esa carpeta: si se levanta desde
+otra, Docker crea una base de datos nueva y vacía.
 
 ## 6. Estructura del proyecto
 
@@ -226,7 +260,7 @@ src/
     ├── club-lectura/       # Clubes, hilos y progreso compartido       → PostgreSQL
     ├── newsletter/         # Suscripciones                             → PostgreSQL
     ├── admin/              # Reposición del stock de prueba
-    ├── mail/               # Envío de correos                          → dummy (log)
+    ├── mail/               # Envío de correos                          → SMTP o log
     ├── envios/             # Cotización de envío                       → dummy
     ├── pagos/              # Pasarela de pago                          → dummy
     └── seguimiento/        # Seguimiento del pedido                    → dummy
@@ -384,7 +418,7 @@ dependencias de producción y corre con un usuario sin privilegios. La publica G
 al crear un tag `vX.Y.Z` que coincida con `package.json`. Para construirla a mano:
 
 ```bash
-docker build -t usuario/leeconnos-backend:0.4.0 .
+docker build -t montseastica/leeconnos-backend:0.4.1 .
 ```
 
 El detalle (secrets de Docker Hub, cambio de versión en el servidor, HTTPS y cookies) está en
@@ -396,6 +430,28 @@ Al iniciar sesión la API deja el token en cookies HttpOnly (`lcn_access` y `lcn
 que el JavaScript del navegador no puede leer. La Web debe enviar las peticiones con
 credenciales (`credentials: 'include'`); Mobile y Swagger siguen usando
 `Authorization: Bearer`. `POST /auth/logout` cierra la sesión en todos los dispositivos.
+
+Entre la Web y la API en dominios distintos, el navegador solo envía las cookies con HTTPS
+(`COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`). Mientras el servidor no tenga HTTPS, la Web
+puede seguir usando el header `Authorization: Bearer`, que la API también acepta.
+
+### Correos
+
+Con `SMTP_HOST` configurado, la API envía de verdad los correos de verificación de cuenta,
+recuperación de contraseña, pedidos y preguntas al librero. El de verificación lleva a
+`<FRONTEND_URL>/verificar-correo?token=<token>`. Sin `SMTP_HOST`, los correos quedan en el
+log con su enlace. La configuración con Gmail está en
+[`docs/despliegue.md`](./docs/despliegue.md#5-correos-reales).
+
+### Versiones
+
+| Versión | Contenido | Estado |
+|---|---|---|
+| 0.4.1 | Envío real de correos por SMTP | Integración pendiente |
+| 0.4.0 | Cierre del Hito 3: migraciones de TypeORM, imágenes, cookies HttpOnly, direcciones guardadas, preguntas al librero, Docker Hub | **Desplegada** en el servidor |
+| 0.3.0 | Hito 3, primera parte: lo que UX diseñó y la API no tenía | — |
+| 0.2.0 | Hito 2: flujos core de e-commerce sobre PostgreSQL | — |
+| 0.0.1 | Hito 1: base del proyecto (tag `hito-1`) | — |
 
 ### Decisiones técnicas
 
