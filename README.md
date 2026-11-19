@@ -9,7 +9,7 @@ comprar, pagar y seguir un pedido. Suma perfiles de libreros con secciones curad
 recomendaciones según géneros e historial de compras, club de lectura, reseñas y listas de
 deseos. El catálogo se enriquece con metadatos de la API gratuita de **Open Library**.
 
-> Entrega correspondiente al **Hito 3** del Bootcamp DCC — Universidad de Chile. Versión **0.4.1**.
+> Entrega correspondiente al **Hito 3** del Bootcamp DCC — Universidad de Chile. Versión **0.4.2**.
 
 | Recurso | Enlace |
 |---|---|
@@ -447,8 +447,9 @@ log con su enlace. La configuración con Gmail está en
 
 | Versión | Contenido | Estado |
 |---|---|---|
-| 0.4.1 | Envío real de correos por SMTP | Integración pendiente |
-| 0.4.0 | Cierre del Hito 3: migraciones de TypeORM, imágenes, cookies HttpOnly, direcciones guardadas, preguntas al librero, Docker Hub | **Desplegada** en el servidor |
+| 0.4.2 | Ejemplos de error propios en cada respuesta de Swagger | Integración pendiente |
+| 0.4.1 | Envío real de correos por SMTP | **Desplegada** en el servidor (tags `v0.4.1` y `hito-3`) |
+| 0.4.0 | Cierre del Hito 3: migraciones de TypeORM, imágenes, cookies HttpOnly, direcciones guardadas, preguntas al librero, Docker Hub | Tag `v0.4.0` |
 | 0.3.0 | Hito 3, primera parte: lo que UX diseñó y la API no tenía | — |
 | 0.2.0 | Hito 2: flujos core de e-commerce sobre PostgreSQL | — |
 | 0.0.1 | Hito 1: base del proyecto (tag `hito-1`) | — |
