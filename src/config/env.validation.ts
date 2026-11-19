@@ -23,6 +23,7 @@ export function validateEnv(
     'ENVIO_GRATIS_DESDE',
     'SEGUIMIENTO_PASO_SEGUNDOS',
     'IMAGEN_MAX_MB',
+    'SMTP_PORT',
   ]) {
     const valor = config[clave];
     if (
