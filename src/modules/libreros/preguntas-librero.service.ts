@@ -47,7 +47,9 @@ export class PreguntasLibreroService {
         para: correoLibrero,
         asunto: `${pregunta.nombre} te hizo una pregunta en LeeConNos`,
         texto: pregunta.pregunta,
-        enlace: this.mail.enlaceFront(`/libreros/${librero.slug}`),
+        enlace: this.mail.enlaceFront(
+          `/perfil-librero?librero=${encodeURIComponent(librero.slug)}`,
+        ),
       });
     return pregunta;
   }
@@ -82,7 +84,9 @@ export class PreguntasLibreroService {
       para: pregunta.email,
       asunto: `${librero.nombreCorto} respondió tu pregunta`,
       texto: pregunta.respuesta,
-      enlace: this.mail.enlaceFront(`/libreros/${librero.slug}`),
+      enlace: this.mail.enlaceFront(
+        `/perfil-librero?librero=${encodeURIComponent(librero.slug)}`,
+      ),
     });
     return pregunta;
   }
